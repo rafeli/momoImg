@@ -9,6 +9,7 @@
 
 #include "momo/logging.hpp"
 #include "momo/systemCall.hpp"
+#include "momo/binaryCoding.hpp"
 
 #define MINP 100        // how many pixel required to get valid averages
 #define MAXSIZE 1E5     // used in various calls, upper limit img.rows, img.cols
@@ -33,9 +34,15 @@ public:
 
   MomoImg clone();
 
+  // reading writing (to file or string)
+
   MomoImg readImage(std::string fileName);
 
   void saveImage(std::string);
+
+  std::string toHTML();
+
+  void readFromJSON(std::string json);
 
   void checkImage(std::string comment, std::string filename, std::string suffix);
 

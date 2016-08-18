@@ -15,6 +15,19 @@ void MomoImg::saveImage(std::string fp) {
   imwrite(fp, img);
 }
 
+std::string MomoImg::toHTML() {
+
+  // encode image as jpg then as base64:
+  // see: http://stackoverflow.com/questions/801199/opencv-to-use-in-memory-buffers-or-file-pointers
+  std::vector<uchar> buf;
+  cv::imencode(".jpg", img, buf, std::vector<int>() );
+  std::string base64 = encodeBase64((unsigned char*) &buf[0], buf.size());
+//  return encodeBase64((unsigned char*) &buf[0], buf.size());
+
+  return std::string("<img src=\"data:jpeg;base64," + base64 + "\">");
+
+}
+
 void MomoImg::checkImage(std::string t, std::string fn, std::string suffix) {
 
   Mat x;
