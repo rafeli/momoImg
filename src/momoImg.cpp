@@ -22,9 +22,21 @@ std::string MomoImg::toHTML() {
   std::vector<uchar> buf;
   cv::imencode(".jpg", img, buf, std::vector<int>() );
   std::string base64 = encodeBase64((unsigned char*) &buf[0], buf.size());
-//  return encodeBase64((unsigned char*) &buf[0], buf.size());
 
   return std::string("<img src=\"data:jpeg;base64," + base64 + "\">");
+
+}
+
+// data is XXXX, type is YYYY in following html element:
+// <img src="data:YYY;base64,XXXX"/>
+// e.g. type equals "image/png" or "image/jpeg"
+// use of rawData, see: http://stackoverflow.com/questions/14727267/opencv-read-jpeg-image-from-buffer
+MomoImg MomoImg::readFromString(const std::string& data, const std::string type) {
+
+  std::vector<unsigned char> buf = decodeBase64(data);
+  cv::Mat rawData = Mat(1,buf.size(), CV_8UC1, ((unsigned char*) &buf[0]));
+  img = cv::imdecode(rawData,CV_LOAD_IMAGE_UNCHANGED);
+  return (*this);
 
 }
 
@@ -319,7 +331,7 @@ MomoImg MomoImg::addImage(Mat m, unsigned int atRow, unsigned int atCol) {
       mask;
 
   // -0- check arguments
-  if (atRow>img.rows || atCol >img.cols) {
+  if (atRow-img.rows>0 || atCol-img.cols>0) {
     throw "from addImage: cannot add at "
         + std::to_string(atRow) +":" + std::to_string(atCol)
         + " in image of size " 

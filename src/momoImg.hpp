@@ -6,6 +6,9 @@
 #include <opencv2/imgproc.hpp>                      //
 #include <opencv2/imgproc/imgproc_c.h>              // CV_BGR2HSV
 #include <opencv2/highgui/highgui.hpp>              // window management
+//#include <opencv2/imgcodecs.hpp>                  //
+#include <opencv2/imgcodecs/imgcodecs_c.h>          // CV_LOAD_IMAGE_UNCHANGED
+
 
 #include "momo/logging.hpp"
 #include "momo/systemCall.hpp"
@@ -36,13 +39,14 @@ public:
 
   // reading writing (to file or string)
 
+  // TODO: rename to readFromFile
   MomoImg readImage(std::string fileName);
 
   void saveImage(std::string);
 
   std::string toHTML();
 
-  void readFromJSON(std::string json);
+  MomoImg readFromString(const std::string& data, const std::string type);
 
   void checkImage(std::string comment, std::string filename, std::string suffix);
 

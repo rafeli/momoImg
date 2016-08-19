@@ -1,6 +1,7 @@
 CC = g++
 CFLAGS = -Wall -g -std=c++0x
-LFLAGS = -L ~/local/lib
+LOCALLIB = ~/local/lib
+LFLAGS = -L $(LOCALLIB)
 INCLUDES = -I ~/local/include
 
 SRCS := $(wildcard src/*.cpp)
