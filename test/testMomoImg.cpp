@@ -16,22 +16,24 @@ TestMomoImg::TestMomoImg(){
 
 TestMomoImg::~TestMomoImg(){}
 
-void TestMomoImg::testAll(){
+int TestMomoImg::testAll(){
 
-  testReadWrite();
+  int numTests = 0;
 
-// TODO: testGetAngle()
+  numTests += testReadWrite();
 
+  return numTests;
 }
 
 
-void TestMomoImg::testReadWrite(){
+int TestMomoImg::testReadWrite(){
 
   cv::Mat imgA(30,40,CV_8U,25),                  // grayscale 30x40 image
           imgB(30,20,CV_8UC3, Scalar(20,30,40));  // color 30x20 image
 
   MomoImg testA(imgA),    
-          testB(imgB);
+          testB(imgB),
+          xA, xB, A_minus_B;
 
 
 
@@ -58,17 +60,33 @@ void TestMomoImg::testReadWrite(){
     
     
 
-    // -2- convert to html
-    test_ = "MomoImg::toHTML()";
+    // -2- test conversion to html, grayscale and color
     actual_.str(testA.toHTML());
-    expected_ = "????\n";
-    TestTools::report(actual_.str(), testA_html, test_);
+    TestTools::report(actual_.str(), testA_html, "writing CV_8UC1 to html");
 
     actual_.str(testB.toHTML());
-    expected_ = "????\n";
-    TestTools::report(actual_.str(), testB_html, test_);
+    TestTools::report(testB.toHTML(), testB_html, "writing CV_8UC3 to html jpeg");
 
-    // -3- convert from html
+    // -3- convert from html data, grayscale and color
+    ///    REMARK: the converted images are *not* identical, but A_minus_B is minimal
+    test_ = "reading CV_8UC1 from base64 string";
+    xA.readFromString(dataA,"image/jpeg"); 
+    A_minus_B.createFromMat(testA.img - xA.img);
+    if (A_minus_B.getNumOnes() < 1000) { 
+      TestTools::report("OK", "OK", test_);
+    } else {
+      TestTools::report(testA_html, xA.toHTML(), test_);
+    }
+
+    test_ = "reading CV_8UC3 from base64 string";
+    xB.readFromString(dataB,"image/jpeg"); 
+    A_minus_B.createFromMat(testB.img - xB.img);
+    if (A_minus_B.getNumOnes() < 1000) { 
+      TestTools::report("OK", "OK", test_);
+    } else {
+      TestTools::report(testA_html, xA.toHTML(), test_);
+    }
+    
 
     // -4- write to file
 
@@ -79,5 +97,9 @@ void TestMomoImg::testReadWrite(){
   catch(std::string s) {
     std::cout << "Exception thrown in test"<< test_ <<":" << s << std::endl;
   }
+
+
+  // return
+  return 4;
 }
 

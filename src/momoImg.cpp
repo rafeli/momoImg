@@ -113,6 +113,10 @@ MomoImg MomoImg::clone() {
   return myClone;
 }
 
+MomoImg MomoImg::createFromMat(const cv::Mat& m) {
+  img = m;
+  return (*this);
+}
 
 bool MomoImg::isValidPoint(Point p) {
   return (p.y<img.rows && p.x<img.cols);
@@ -121,18 +125,24 @@ bool MomoImg::isValidPoint(Point p) {
 long MomoImg::getNumOnes() {
 
   int nCols=img.cols, 
-      nRows=img.rows;
+      nRows=img.rows,
+      nChannels = img.channels();
   long nPix = 0;
 
   for (int i=0; i<nRows; i++) { 
     uchar* data = img.ptr<uchar>(i);
-    for (int j=0; j<nCols; j++) 
+    for (int j=0; j<nCols*nChannels; j++) 
       if (data[j]) {
         nPix++;
     }
   }
  return nPix;
 }
+
+
+
+
+
 
 int MomoImg::getMedian(long median, bool countRows) {
   

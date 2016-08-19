@@ -48,6 +48,8 @@ public:
 
   MomoImg readFromString(const std::string& data, const std::string type);
 
+  MomoImg createFromMat(const cv::Mat&);
+
   void checkImage(std::string comment, std::string filename, std::string suffix);
 
 
