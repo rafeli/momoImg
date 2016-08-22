@@ -75,6 +75,10 @@ public:
 
   MomoImg selectContrast(unsigned int size, bool horizontal);
 
+  // set the pixel to one that have a value between the given
+  // histogramm percentages
+  MomoImg selectFromHistogram(double min, double max); 
+
   MomoImg selectCannyLines(unsigned int lowThreshold, unsigned int highThreshold);
 
   MomoImg selectRegion(unsigned int rowMin,unsigned int rowMax,unsigned int colMin,unsigned int colMax);
@@ -107,6 +111,12 @@ public:
   MomoImg rotate(double angle);
 
   MomoImg setSize(unsigned int rows, unsigned int cols);
+
+  /// improve quality of image by a median filter
+  MomoImg medianFilter(const int kSize);
+
+  /// improve quality by subtracting x times the laplacian
+  MomoImg sharpen2D(double rho);
 
   //// DRAWING functions
   MomoImg drawArrow(const Point , const Point);

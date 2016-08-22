@@ -33,6 +33,8 @@ std::string MomoImg::toHTML() {
 // use of rawData, see: http://stackoverflow.com/questions/14727267/opencv-read-jpeg-image-from-buffer
 MomoImg MomoImg::readFromString(const std::string& data, const std::string type) {
 
+  if (data.size() ==0) throw std::string("from MomoImg::readFromString: data is empty");
+
   std::vector<unsigned char> buf = decodeBase64(data);
   cv::Mat rawData = Mat(1,buf.size(), CV_8UC1, ((unsigned char*) &buf[0]));
   img = cv::imdecode(rawData,CV_LOAD_IMAGE_UNCHANGED);
@@ -258,6 +260,46 @@ MomoImg MomoImg::selectHSVChannel(unsigned int i) {
   return (*this);
 }
 
+MomoImg MomoImg::selectFromHistogram(double min, double max) {
+
+    
+    // -0- ENTER and CHECK
+    if (min<0 || max<min || max>100) {
+      throw std::string("selectFromHistogramm: Please make sure that 0 < min < max < 100");
+    }
+
+    // -1- calculate Histogram 
+    Mat histogram,
+        mask = cv::Mat();
+    int numImages=1, numDimensions=1, 
+    const float* ranges[1];
+    int channels[1],
+        histSize[1];
+
+    hranges[0] = 0;
+    hranges[1] = 256.0;
+    ranges[0] = hranges;
+    channels[0]=0;         // defines the channel to look at
+    histSize[0]=256;
+   
+    cv::calcHist(&img, 1, channels, cv::Mat(), histogram, 1, histSize, ranges);
+
+    // -2- calculate the min-quantil and max-quantil
+    double numPixel = img.rows * img.cols;
+    long cumPixel=0;
+    minBin = maxBin = -1;
+    for (unsigned int bin=0; bin<histSize[0]; bin++) {
+      cumPixel +=  
+      if (cumPixel/numPixel > min && minBin==-1) minBin = bin;
+      if (cumPixel/numPixel > max && maxBin==-1) minBin = bin;
+    }
+
+    // -2- select accordingly
+  }
+}
+
+
+
 MomoImg MomoImg::selectContrast(unsigned int nPix, bool horizontal) {
 
   Mat vMask, hMask,
@@ -327,6 +369,35 @@ MomoImg MomoImg::setSize(unsigned int rows, unsigned int cols) {
   } catch (cv::Exception& e) {
     throw " from MomoImg::setSize: " + e.err;
   }
+  return (*this);
+}
+
+MomoImg MomoImg::medianFilter(const int kSize) {
+  if (kSize%2==0 || kSize<1) {
+    throw std::string("kSize must be an odd number > 0");
+  }
+  medianBlur(img,img,kSize);
+  return (*this);
+}
+
+MomoImg MomoImg::sharpen2D(double rho) {
+
+  Mat kernel(3,3,CV_32F, cv::Scalar(0)); // init with all value=0
+
+  // -0- ENTER and CHECK
+  if (rho<0) {
+    throw std::string("rho must be >0");
+  }
+
+  // -1- compute kernel
+  kernel.at<float>(1,1) = 1.0 + 4*rho;
+  kernel.at<float>(0,1) = -1*rho;
+  kernel.at<float>(2,1) = -1*rho;
+  kernel.at<float>(1,0) = -1*rho;
+  kernel.at<float>(1,2) = -1*rho;
+
+  // -2- call filter2D with kernel
+  filter2D(img, img, img.depth(), kernel);
   return (*this);
 }
 
