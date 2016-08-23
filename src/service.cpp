@@ -113,11 +113,17 @@ bool callback(MomoMessage request, int socket_fd) {
            responseBody = images["result"].toHTML();
          } else if (convName=="sharpen2D") {
            double rho = myConversion.get("rho").getDbl();
-           images["result"] = result.sharpen2D(rho);
+           int kSize = myConversion.get("kSize").getInt();
+           images["result"] = result.sharpen2D(rho,kSize);
            responseBody = images["result"].toHTML();
          } else if (convName=="selectHSVChannel") {
            int channel = myConversion.get("channel").getInt();
            images["result"] = result.selectHSVChannel(channel);
+           responseBody = images["result"].toHTML();
+         } else if (convName=="selectFromHistogram") {
+           double min = myConversion.get("min").getDbl(),
+               max = myConversion.get("max").getDbl();
+           images["result"] = result.selectFromHistogram(min,max);
            responseBody = images["result"].toHTML();
          } else if (convName=="crop" || convName=="selectRegion") {
            int top  = myConversion.get("top").getInt(),

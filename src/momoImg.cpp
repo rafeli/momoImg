@@ -256,11 +256,14 @@ MomoImg MomoImg::selectHSVChannel(unsigned int i) {
   cvtColor(img, img, CV_BGR2HSV);
   split(img, channels);
   img = channels[i%3]; 
+//   equalizeHist(img, img);
 
   return (*this);
 }
 
 MomoImg MomoImg::selectFromHistogram(double min, double max) {
+
+  Mat lowLimitMask, uppLimitMask;
 
     
     // -0- ENTER and CHECK
@@ -272,9 +275,10 @@ MomoImg MomoImg::selectFromHistogram(double min, double max) {
     Mat histogram,
         mask = cv::Mat();
     int numImages=1, numDimensions=1, 
-    const float* ranges[1];
-    int channels[1],
+        channels[1],
         histSize[1];
+    float hranges[2];
+    const float* ranges[1];
 
     hranges[0] = 0;
     hranges[1] = 256.0;
@@ -285,17 +289,23 @@ MomoImg MomoImg::selectFromHistogram(double min, double max) {
     cv::calcHist(&img, 1, channels, cv::Mat(), histogram, 1, histSize, ranges);
 
     // -2- calculate the min-quantil and max-quantil
-    double numPixel = img.rows * img.cols;
-    long cumPixel=0;
-    minBin = maxBin = -1;
-    for (unsigned int bin=0; bin<histSize[0]; bin++) {
-      cumPixel +=  
-      if (cumPixel/numPixel > min && minBin==-1) minBin = bin;
-      if (cumPixel/numPixel > max && maxBin==-1) minBin = bin;
+    double numPixel = img.rows * img.cols / 100.0; // divide by 100 so that min max are %-values
+    long cumulNumPixel=0;
+    int minBin = -1, maxBin = -1;
+    for (int bin=0; bin<histSize[0]; bin++) {
+      cumulNumPixel +=  histogram.at<float>(bin);
+      if (cumulNumPixel/numPixel > min && minBin==-1) minBin = bin;
+      if (cumulNumPixel/numPixel >= max && maxBin==-1) maxBin = bin;
     }
 
     // -2- select accordingly
-  }
+    threshold(img, lowLimitMask, minBin,255, cv::THRESH_BINARY); 
+    threshold(img, uppLimitMask, maxBin,255, cv::THRESH_BINARY_INV); 
+    img = lowLimitMask & uppLimitMask;
+
+
+  // -3- return
+  return (*this);
 }
 
 
@@ -380,7 +390,7 @@ MomoImg MomoImg::medianFilter(const int kSize) {
   return (*this);
 }
 
-MomoImg MomoImg::sharpen2D(double rho) {
+MomoImg MomoImg::sharpen2D(double rho, const int kSize) {
 
   Mat kernel(3,3,CV_32F, cv::Scalar(0)); // init with all value=0
 
@@ -388,6 +398,13 @@ MomoImg MomoImg::sharpen2D(double rho) {
   if (rho<0) {
     throw std::string("rho must be >0");
   }
+
+  //test: sharpen by subtracting median-filtered image
+  Mat blur;
+  medianBlur(img, blur, kSize);
+  img -= rho*blur;
+  img *= 2.0;
+  return (*this);
 
   // -1- compute kernel
   kernel.at<float>(1,1) = 1.0 + 4*rho;

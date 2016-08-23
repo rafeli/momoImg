@@ -116,7 +116,7 @@ public:
   MomoImg medianFilter(const int kSize);
 
   /// improve quality by subtracting x times the laplacian
-  MomoImg sharpen2D(double rho);
+  MomoImg sharpen2D(double rho, const int kSize);
 
   //// DRAWING functions
   MomoImg drawArrow(const Point , const Point);
