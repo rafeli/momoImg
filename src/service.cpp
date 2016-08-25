@@ -26,6 +26,8 @@ bool callback(MomoMessage request, int socket_fd) {
 
   std::string url = request.url, mName="", pText ="", reqBody,
               response="", responseBody="", responseCode="200";
+  jsObject o = getJSONObject("{}");
+  jsValue jsBody(std::move(o));
 
 
   // -0- ENTER
@@ -50,10 +52,13 @@ bool callback(MomoMessage request, int socket_fd) {
     }
 
     // -1.2- call requested method
+    const int64 startTime = cv::getTickCount();
     if (mName == "getImage") {
      
      if (images.count(pText)>0) {
-       responseBody = images[pText].toHTML();
+       jsValue imgJSON(images[pText].toHTML());
+       // getJSONValue reads a JSON string, not a plain string !!
+       jsBody.add("img", imgJSON);
      } else {
        responseCode = "400";
        responseBody = "image not found: " + pText;
@@ -67,8 +72,7 @@ bool callback(MomoMessage request, int socket_fd) {
        for (auto const& it : images) keys.push_back(it.first);
        if (keys.size()==0) keys.push_back("NO IMAGES YET");
        jsValue keysAsJSON(keys);
-       responseBody = keysAsJSON.stringify();
-       
+       jsBody.add("imgKeys",keysAsJSON);
      } catch (std::string s) {
         responseCode = "400";
         responseBody = "error: " + s;
@@ -76,7 +80,7 @@ bool callback(MomoMessage request, int socket_fd) {
     } else if (mName == "getProcessingOptions") {
      
      try {
-       responseBody = PROCESSINGOPTIONS;
+       jsBody.add("options", getJSONValue(PROCESSINGOPTIONS));
      } catch (std::string s) {
         responseCode = "400";
         responseBody = "error: " + s;
@@ -91,8 +95,7 @@ bool callback(MomoMessage request, int socket_fd) {
        MomoImg momoImg;
        momoImg.readFromString(imgData, imgType);
        images[imgKey] = momoImg;
-       responseBody = images[imgKey].toHTML();
-       
+       // no need to return data
      } catch (std::string s) {
         responseCode = "400";
         responseBody = "error: " + s;
@@ -107,24 +110,91 @@ bool callback(MomoMessage request, int socket_fd) {
        if (images.count(srcKey)>0) {
          MomoImg srcImage = images[srcKey],
                  result = srcImage.clone();
-         if (convName=="medianFilter") {
+         if (convName=="test") {
+           int param = myConversion.get("param").getInt();
+           MomoImg mask;
+
+           // to be moved to schuelerlabor 
+
+           // -1- improve image (resize/sharpen)
+           result = result.resize(0.4, 0.4);
+           result = result.sharpen2D(0.9, 99);
+           result = result.sharpen2D(0.9, 99);
+//           result = result.selectHSV(0,255,0,255,100,255);
+//           result.img.copyTo(result.img, mask.img);
+           MomoImg resultMask = result.clone().threshold(2,100,true); // select pixel with hue>100
+//           result = result.selectHSVChannel(2); // if this is moved up, then threshold should be called with channel=0
+
+           // -2- find top border as the upper-border of the 
+           // big fat line atop
+           int leftTop, rightTop,
+               topLeft, bottomLeft,
+               topRight, bottomRight;
+
+           int numRows = resultMask.img.rows, 
+               numCols = resultMask.img.cols, 
+               arrLen = numCols*0.1;   // length of check-arrow
+
+
+           mask = resultMask.clone().selectRegion(numRows/20,numRows/3,numCols*0.2, numCols*0.4); 
+           leftTop = mask.getMedian(mask.getNumOnes()/10, true);
+           mask = resultMask.clone().selectRegion(numRows/20,numRows/3,numCols*0.6, numCols*0.8); 
+           rightTop = mask.getMedian(mask.getNumOnes()/10, true);
+           mask = resultMask.clone().selectRegion(numRows*0.2,numRows*0.4,numCols*0.1, numCols*0.5); 
+           topLeft = mask.getMedian(mask.getNumOnes()*0.1, false);
+           mask = resultMask.clone().selectRegion(numRows*0.2,numRows*0.4,numCols*0.5, numCols*0.9); 
+           topRight = mask.getMedian(mask.getNumOnes()*0.9, false);
+           mask = resultMask.clone().selectRegion(numRows*0.6,numRows*0.8,numCols*0.1, numCols*0.5); 
+           bottomLeft = mask.getMedian(mask.getNumOnes()*0.1, false);
+           mask = resultMask.clone().selectRegion(numRows*0.6,numRows*0.8,numCols*0.5, numCols*0.9); 
+           bottomRight = mask.getMedian(mask.getNumOnes()*0.9, false);
+           std::cout << "lt/rt: " << leftTop << "/" << rightTop 
+                     << "\ntl/bl: " << topLeft << "/" << bottomLeft 
+                     << "\ntr/br: " << topRight << "/" << bottomRight 
+                     << std::endl;
+           
+
+
+           images["new_" + srcKey] = result;
+
+           // write checks into result
+           resultMask.drawArrow(Point(numCols*0.15, leftTop), Point(arrLen,0));
+           resultMask.drawArrow(Point(numCols*0.65, rightTop), Point(arrLen,0));
+           resultMask.drawArrow(Point(topLeft, numRows*0.2), Point(0,arrLen));
+           resultMask.drawArrow(Point(topRight, numRows*0.2), Point(0,arrLen));
+           resultMask.drawArrow(Point(bottomLeft, numRows*0.6), Point(0,arrLen));
+           resultMask.drawArrow(Point(bottomRight, numRows*0.6), Point(0,arrLen));
+           images["result"] = resultMask;
+
+         } else if (convName=="medianBlur") {
            int kSize = myConversion.get("kSize").getInt();
-           images["result"] = result.medianFilter(kSize);
-           responseBody = images["result"].toHTML();
+           images["result"] = result.medianBlur(kSize);
+         } else if (convName=="gaussianBlur") {
+           double sigmaX = myConversion.get("sigmaX").getDbl(),
+                  sigmaY = myConversion.get("sigmaY").getDbl();
+           images["result"] = result.gaussianBlur(sigmaX, sigmaY);
+         } else if (convName=="equalizeHist") {
+           images["result"] = result.equalizeHist();
+         } else if (convName=="resize") {
+           double fx = myConversion.get("fx").getDbl(),
+                  fy = myConversion.get("fy").getDbl();
+           images["result"] = result.resize(fx,fy);
          } else if (convName=="sharpen2D") {
            double rho = myConversion.get("rho").getDbl();
            int kSize = myConversion.get("kSize").getInt();
            images["result"] = result.sharpen2D(rho,kSize);
-           responseBody = images["result"].toHTML();
          } else if (convName=="selectHSVChannel") {
            int channel = myConversion.get("channel").getInt();
            images["result"] = result.selectHSVChannel(channel);
-           responseBody = images["result"].toHTML();
+         } else if (convName=="threshold") {
+           int channel = myConversion.get("channel").getInt(),
+               isLowerLimit = myConversion.get("isLowerLimit").getInt();
+           double limit = myConversion.get("limit").getDbl();
+           images["result"] = result.threshold(channel, limit, isLowerLimit!=0);
          } else if (convName=="selectFromHistogram") {
            double min = myConversion.get("min").getDbl(),
                max = myConversion.get("max").getDbl();
            images["result"] = result.selectFromHistogram(min,max);
-           responseBody = images["result"].toHTML();
          } else if (convName=="crop" || convName=="selectRegion") {
            int top  = myConversion.get("top").getInt(),
                left = myConversion.get("left").getInt(),
@@ -133,16 +203,19 @@ bool callback(MomoMessage request, int socket_fd) {
            images["result"] = (convName=="crop") ? 
              result.crop(top,top+height,left,left+width) :
              result.selectRegion(top,top+height,left,left+width);
-           responseBody = images["result"].toHTML();
          } else {
-           responseCode = "400";
-           responseBody = "conversion not found: " + convName;
+           responseCode = "400";  // any convName that doesnt fit above if () statements
+           throw std::string("conversion not found: " + convName);
          }
-       } else {
-         responseCode = "400";
-         responseBody = "image not found: " + srcKey;
-       }
 
+         // final step for all conversions: include result image in response
+         jsValue imgJSON(images["result"].toHTML());
+         jsBody.add("img", imgJSON);
+
+       } else {
+         responseCode = "400";  // images[srcKey].count==0
+         throw std::string("image not found: " + srcKey);
+       }
        
      } catch (std::string s) {
         responseCode = "400";
@@ -153,6 +226,11 @@ bool callback(MomoMessage request, int socket_fd) {
       responseBody = "NOT FOUND: " + url;
       throw std::string("incorrect method: " + mName);
     }
+
+    // create response body for call to opencv
+    jsValue duration((cv::getTickCount() - startTime) / cv::getTickFrequency());
+    jsBody.add("time",duration);
+    responseBody = jsBody.stringify();
 
   } catch (std::string s) {
     if (responseCode == "200") responseCode = "400";

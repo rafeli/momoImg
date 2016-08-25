@@ -91,6 +91,8 @@ public:
   /// get according to hsv values
   MomoImg selectHSV(int hMin, int hMax, int sMin, int sMax, int vMin, int vMax);
 
+  MomoImg threshold(int channel, double limit, bool selectHigherThanLimit);
+
   /// transform rgb picture to either hue, saturation or value 
   MomoImg selectHSVChannel(unsigned int x);
 
@@ -112,14 +114,18 @@ public:
 
   MomoImg setSize(unsigned int rows, unsigned int cols);
 
-  /// improve quality of image by a median filter
-  MomoImg medianFilter(const int kSize);
+  /// improve quality of image by histogram equalizing
+  // TODO: pure opencv method-wrappers should go to a opencv-wrapper
+  MomoImg equalizeHist();
+  MomoImg gaussianBlur(double sigmaX, double sigmaY);
+  MomoImg medianBlur(const int kSize);
+  MomoImg resize(double fx, double fy);
 
   /// improve quality by subtracting x times the laplacian
   MomoImg sharpen2D(double rho, const int kSize);
 
   //// DRAWING functions
-  MomoImg drawArrow(const Point , const Point);
+  MomoImg drawArrow(const Point , const Point, const int thickness=20);
 
   MomoImg drawSquare(const Point , const Point);
 

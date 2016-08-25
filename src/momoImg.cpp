@@ -49,7 +49,7 @@ void MomoImg::checkImage(std::string t, std::string fn, std::string suffix) {
   Scalar fontColor = Scalar(255,255,255);
 
   // -1- create image, insert the text t into this image
-  resize(img,x,Size(600,400));
+  cv::resize(img,x,Size(600,400));
   if (t.length()>0) putText(img, t, Point(50,50),fontType,2,fontColor,1);
 
   // -2- construct the filename, e.g. xyz_CENTER.jpg  for xyz.jpg
@@ -78,13 +78,13 @@ MomoImg MomoImg::drawSquare(const Point topleft, const Point bottomright) {
   return (*this);
 }
 
-MomoImg MomoImg::drawArrow(const Point start, const Point arrow) {
+MomoImg MomoImg::drawArrow(const Point start, const Point arrow, const int thickness) {
 
   Point normal = Point(arrow.y, -1*arrow.x);
 
-  line(img,start,start + arrow,255,4,8);
-  line(img,start + 0.7*arrow + 0.2*normal, start+arrow, 255,4,8); 
-  line(img,start + 0.7*arrow - 0.2*normal, start+arrow, 255,4,8); 
+  line(img,start,start + arrow,125,20,8);
+  line(img,start + 0.7*arrow + 0.2*normal, start+arrow, 125,thickness, 8); 
+  line(img,start + 0.7*arrow - 0.2*normal, start+arrow, 125,thickness, 8); 
   
   return (*this);
 }
@@ -143,7 +143,10 @@ long MomoImg::getNumOnes() {
 
 
 
-
+MomoImg MomoImg::resize(double fx, double fy) {
+  cv::resize(img, img, cv::Size(),fx, fy);
+  return (*this);
+}
 
 
 int MomoImg::getMedian(long median, bool countRows) {
@@ -252,6 +255,7 @@ MomoImg MomoImg::selectCannyLines( unsigned int lowThreshold, unsigned int highT
 }
 
 MomoImg MomoImg::selectHSVChannel(unsigned int i) {
+
   std::vector<Mat> channels;
   cvtColor(img, img, CV_BGR2HSV);
   split(img, channels);
@@ -286,7 +290,7 @@ MomoImg MomoImg::selectFromHistogram(double min, double max) {
     channels[0]=0;         // defines the channel to look at
     histSize[0]=256;
    
-    cv::calcHist(&img, 1, channels, cv::Mat(), histogram, 1, histSize, ranges);
+    cv::calcHist(&img, numImages, channels, cv::Mat(), histogram, numDimensions, histSize, ranges);
 
     // -2- calculate the min-quantil and max-quantil
     double numPixel = img.rows * img.cols / 100.0; // divide by 100 so that min max are %-values
@@ -299,8 +303,8 @@ MomoImg MomoImg::selectFromHistogram(double min, double max) {
     }
 
     // -2- select accordingly
-    threshold(img, lowLimitMask, minBin,255, cv::THRESH_BINARY); 
-    threshold(img, uppLimitMask, maxBin,255, cv::THRESH_BINARY_INV); 
+    cv::threshold(img, lowLimitMask, minBin,255, cv::THRESH_BINARY); 
+    cv::threshold(img, uppLimitMask, maxBin,255, cv::THRESH_BINARY_INV); 
     img = lowLimitMask & uppLimitMask;
 
 
@@ -356,7 +360,7 @@ MomoImg MomoImg::selectShapeColor(int hSize, int vSize, int channel ) {
   result = channels[channel] - result;
 
   // -2- convert to binary, then filter again for vertical/horizontal
-  threshold(result, result, 15, 255, cv::THRESH_BINARY); 
+  cv::threshold(result, result, 15, 255, cv::THRESH_BINARY); 
   erode(result, img, erosionBox);
 
   // return
@@ -375,18 +379,43 @@ MomoImg MomoImg::setSize(unsigned int rows, unsigned int cols) {
 
   MYLOG(DEBUG,"Enter, rows:" << img.rows << " cols:" << img.cols);
   try {
-    resize(img,img,Size(rows,cols));
+    cv::resize(img,img,Size(rows,cols));
   } catch (cv::Exception& e) {
     throw " from MomoImg::setSize: " + e.err;
   }
   return (*this);
 }
 
-MomoImg MomoImg::medianFilter(const int kSize) {
+MomoImg MomoImg::equalizeHist() {
+
+  int numChannels = img.channels();
+ 
+  if (numChannels==1) {
+    cv::equalizeHist(img, img);
+  } else if (numChannels==3) {
+    cv::cvtColor(img,img,CV_BGR2HSV);
+    Mat channels[3];
+    cv::split(img, channels);
+    cv::equalizeHist(channels[2], channels[2]);
+    cv::merge(channels,numChannels, img);
+    cv::cvtColor(img,img,CV_HSV2BGR);
+  } 
+  return (*this);
+}
+
+MomoImg MomoImg::gaussianBlur(double sigmaX, double sigmaY) {
+  if (sigmaX<=0 || sigmaY<0) {
+    throw std::string("from gaussianBlur: sigmaX must be > 0, sigmaY must be >= 0");
+  }
+  GaussianBlur(img,img,cv::Size(0,0), sigmaX, sigmaY);
+  return (*this);
+}
+
+MomoImg MomoImg::medianBlur(const int kSize) {
   if (kSize%2==0 || kSize<1) {
     throw std::string("kSize must be an odd number > 0");
   }
-  medianBlur(img,img,kSize);
+  cv::medianBlur(img,img,kSize);
   return (*this);
 }
 
@@ -399,22 +428,29 @@ MomoImg MomoImg::sharpen2D(double rho, const int kSize) {
     throw std::string("rho must be >0");
   }
 
-  //test: sharpen by subtracting median-filtered image
+  // -1-
   Mat blur;
-  medianBlur(img, blur, kSize);
-  img -= rho*blur;
-  img *= 2.0;
+  cv::medianBlur(img, blur, kSize);
+
+  // new:
+  blur = img - rho*blur;
+  cvtColor(blur, blur, CV_BGR2HSV);
+  cvtColor(img, img, CV_BGR2HSV);
+  Mat imgChannels[3], blurChannels[3];
+  cv::split(img, imgChannels);  
+  cv::split(blur, blurChannels);  
+  imgChannels[2] = blurChannels[2];
+  cv::merge(imgChannels, 3, img);
+  cvtColor(img, img, CV_HSV2BGR);
   return (*this);
 
-  // -1- compute kernel
-  kernel.at<float>(1,1) = 1.0 + 4*rho;
-  kernel.at<float>(0,1) = -1*rho;
-  kernel.at<float>(2,1) = -1*rho;
-  kernel.at<float>(1,0) = -1*rho;
-  kernel.at<float>(1,2) = -1*rho;
+ 
+  // old: 
+  img -= rho*blur;
+  img *= 2.0;
 
-  // -2- call filter2D with kernel
-  filter2D(img, img, img.depth(), kernel);
+
+  // -2- return
   return (*this);
 }
 
@@ -516,6 +552,28 @@ MomoImg MomoImg::rotate(double phi) {
 
 }
 
+MomoImg MomoImg::threshold(int channel, double limit, bool selectHigherThan) {
+  
+  // -0- ENTER and CHECK
+  if (channel>=img.channels()) {
+    throw std::string("threshold() called with non-existent channel index");
+  }
+
+  // -1- set src to correct channel
+  if (img.channels() > 1) {
+    std::vector<Mat> channels;
+    split(img, channels);
+    img = channels[channel];
+  }
+
+  // -1- threshold: calculate binary image from selected channel (or channel 0 from grayscale image)
+  //     with each pixel set to 255 when corresponding pixel is below/above limit
+  cv::threshold(img, img, limit, 255, (selectHigherThan ? THRESH_BINARY : THRESH_BINARY_INV));
+
+  // return
+  return (*this);
+}
+
 MomoImg MomoImg::selectHSV( int hMin, int hMax, int sMin, int sMax, int vMin, int vMax) {
 
   Mat hsvImage, mask,
@@ -537,7 +595,7 @@ MomoImg MomoImg::selectHSV( int hMin, int hMax, int sMin, int sMax, int vMin, in
     bool lowLimit = (i%2==0);
 
     if ((lowLimit && filter[i]>0) || (!lowLimit && filter[i]<255)) {
-       threshold(channels[i/2], mask, filter[i], 255 
+       cv::threshold(channels[i/2], mask, filter[i], 255 
                  , (lowLimit) ? THRESH_BINARY : THRESH_BINARY_INV); 
        totalMask = totalMask & mask;
     }
