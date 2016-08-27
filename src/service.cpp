@@ -118,15 +118,13 @@ bool callback(MomoMessage request, int socket_fd) {
 
            // -1- improve image (resize/sharpen)
            result = result.resize(0.4, 0.4);
-           result = result.sharpen2D(0.9, 99);
-           result = result.sharpen2D(0.9, 99);
-//           result = result.selectHSV(0,255,0,255,100,255);
-//           result.img.copyTo(result.img, mask.img);
-           MomoImg resultMask = result.clone().threshold(2,100,true); // select pixel with hue>100
+           result = result.blurMaskFilter(1.0, 99);
+           MomoImg resultMask = result.clone().threshold(2,50,true); // select pixel with hue>100
 //           result = result.selectHSVChannel(2); // if this is moved up, then threshold should be called with channel=0
+//           MomoImg resultMask = result.clone().selectFromHistogram(70,100); // select pixel with hue>100
 
-           // -2- find top border as the upper-border of the 
-           // big fat line atop
+           // -2- find left,top and right borders with the help of getMedian, which returns the column (row)
+           //     to which x% of all pixels are located left/above and (100-x) pixels are located right/below 
            int leftTop, rightTop,
                topLeft, bottomLeft,
                topRight, bottomRight;
@@ -147,6 +145,8 @@ bool callback(MomoMessage request, int socket_fd) {
            mask = resultMask.clone().selectRegion(numRows*0.6,numRows*0.8,numCols*0.1, numCols*0.5); 
            bottomLeft = mask.getMedian(mask.getNumOnes()*0.1, false);
            mask = resultMask.clone().selectRegion(numRows*0.6,numRows*0.8,numCols*0.5, numCols*0.9); 
+           bottomRight = mask.getMedian(mask.getNumOnes()*0.9, false);
+           mask = resultMask.clone().selectRegion(numRows*0.6,numRows*0.8,bottomRight-100, numCols*0.9); // 2nd more precise search
            bottomRight = mask.getMedian(mask.getNumOnes()*0.9, false);
            std::cout << "lt/rt: " << leftTop << "/" << rightTop 
                      << "\ntl/bl: " << topLeft << "/" << bottomLeft 
@@ -179,13 +179,31 @@ bool callback(MomoMessage request, int socket_fd) {
            double fx = myConversion.get("fx").getDbl(),
                   fy = myConversion.get("fy").getDbl();
            images["result"] = result.resize(fx,fy);
-         } else if (convName=="sharpen2D") {
+         } else if (convName=="blurMaskFilter") {
            double rho = myConversion.get("rho").getDbl();
            int kSize = myConversion.get("kSize").getInt();
-           images["result"] = result.sharpen2D(rho,kSize);
+           images["result"] = result.blurMaskFilter(rho,kSize);
          } else if (convName=="selectHSVChannel") {
            int channel = myConversion.get("channel").getInt();
            images["result"] = result.selectHSVChannel(channel);
+         } else if (convName=="reduce") {
+           int rType = myConversion.get("rType").getInt(),
+               dim = myConversion.get("rType").getInt();
+
+           switch (rType) {
+           case 0: rType = CV_REDUCE_SUM;
+             break;
+           case 1: rType = CV_REDUCE_AVG;
+             break;
+           case 2: rType = CV_REDUCE_MAX;
+             break;
+           case 3: rType = CV_REDUCE_MIN;
+             break;
+           default: 
+             throw std::string("reduce: invalid rType, choose from [0,1,2,3]");
+             break;
+           }
+           std::cout << result.reduce(dim, rType) << std::endl;
          } else if (convName=="threshold") {
            int channel = myConversion.get("channel").getInt(),
                isLowerLimit = myConversion.get("isLowerLimit").getInt();

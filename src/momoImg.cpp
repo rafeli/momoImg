@@ -148,6 +148,19 @@ MomoImg MomoImg::resize(double fx, double fy) {
   return (*this);
 }
 
+std::string MomoImg::reduce(int dim, int rType) {
+
+  int rows_ = (dim ? img.rows : 1),
+      cols_ = (dim ? 1 : img.cols);
+  cv::Mat result(rows_,cols_,img.type());
+  std::stringstream ss;
+
+  cv::reduce(img, result, dim, rType, img.depth());
+
+  ss.str("");
+  ss << result;
+  return ss.str();
+}
 
 int MomoImg::getMedian(long median, bool countRows) {
   
@@ -419,36 +432,38 @@ MomoImg MomoImg::medianBlur(const int kSize) {
   return (*this);
 }
 
-MomoImg MomoImg::sharpen2D(double rho, const int kSize) {
+MomoImg MomoImg::blurMaskFilter(double rho, const int kSize) {
 
-  Mat kernel(3,3,CV_32F, cv::Scalar(0)); // init with all value=0
+  Mat blur;
 
   // -0- ENTER and CHECK
   if (rho<0) {
     throw std::string("rho must be >0");
   }
 
-  // -1-
-  Mat blur;
-  cv::medianBlur(img, blur, kSize);
+  // -1- unsharp masking: subtract blurred image from original
+  //     to increase contrast. In this implementation we first 
+  //     filter too high frequencies
 
-  // new:
+  // -1.1- first filter
+  cv::GaussianBlur(img,img,cv::Size(0,0), kSize/30.0, kSize/30.0);
+
+
+  // -1.2- subtract blurred image from original (all 3 bgr channels)
+  cv::medianBlur(img, blur, kSize); // this seems to be time-determining step
   blur = img - rho*blur;
+
+  // -1.3-  convert the result('blur') to hsv and use its' value-component
+  //        to scale the original image. The following lines seem to take 
+  //        (much) less time than the above medianBlur() call
   cvtColor(blur, blur, CV_BGR2HSV);
   cvtColor(img, img, CV_BGR2HSV);
   Mat imgChannels[3], blurChannels[3];
   cv::split(img, imgChannels);  
   cv::split(blur, blurChannels);  
-  imgChannels[2] = blurChannels[2];
+  imgChannels[2] = 2*blurChannels[2];
   cv::merge(imgChannels, 3, img);
   cvtColor(img, img, CV_HSV2BGR);
-  return (*this);
-
- 
-  // old: 
-  img -= rho*blur;
-  img *= 2.0;
-
 
   // -2- return
   return (*this);

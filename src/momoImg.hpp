@@ -114,15 +114,15 @@ public:
 
   MomoImg setSize(unsigned int rows, unsigned int cols);
 
-  /// improve quality of image by histogram equalizing
   // TODO: pure opencv method-wrappers should go to a opencv-wrapper
   MomoImg equalizeHist();
   MomoImg gaussianBlur(double sigmaX, double sigmaY);
   MomoImg medianBlur(const int kSize);
   MomoImg resize(double fx, double fy);
+  std::string reduce(int dim, int rType);
 
   /// improve quality by subtracting x times the laplacian
-  MomoImg sharpen2D(double rho, const int kSize);
+  MomoImg blurMaskFilter(double rho, const int kSize);
 
   //// DRAWING functions
   MomoImg drawArrow(const Point , const Point, const int thickness=20);
