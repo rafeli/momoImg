@@ -119,13 +119,14 @@ public:
   MomoImg gaussianBlur(double sigmaX, double sigmaY);
   MomoImg medianBlur(const int kSize);
   MomoImg resize(double fx, double fy);
-  std::string reduce(int dim, int rType);
+  MomoImg bitwise_not();
+  std::vector<double> reduce(int dim, int rType);
 
   /// improve quality by subtracting x times the laplacian
   MomoImg blurMaskFilter(double rho, const int kSize);
 
   //// DRAWING functions
-  MomoImg drawArrow(const Point , const Point, const int thickness=20);
+  MomoImg drawArrow(const Point , const Point, int thickness=0);
 
   MomoImg drawSquare(const Point , const Point);
 

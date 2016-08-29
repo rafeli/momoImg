@@ -101,71 +101,141 @@ bool callback(MomoMessage request, int socket_fd) {
         responseBody = "error: " + s;
      }
     } else if (mName == "convert") {
+
+     std::string  convName;
      
      try {
        jsObject myConversion = parseBody(base64ToString(request.body));
-       std::string srcKey = myConversion.get("sourceImage").getString(),
-                convName = myConversion.get("name").getString();
+       std::string srcKey = myConversion.get("sourceImage").getString();
+       convName = myConversion.get("name").getString();
 
        if (images.count(srcKey)>0) {
          MomoImg srcImage = images[srcKey],
                  result = srcImage.clone();
          if (convName=="test") {
-           int param = myConversion.get("param").getInt();
-           MomoImg mask;
 
            // to be moved to schuelerlabor 
+           int param = myConversion.get("param").getInt(),  // not used
+               leftBottom, rightBottom,          // two points in the bottom border
+               topLeft, bottomLeft,              // two points in the left border
+               topRight, bottomRight,            // two points in the right border
+               numRows,                          // num Rows in reduced image
+               numCols, 
+               arrLen = result.img.rows*0.03;     // length of check-arrow
 
-           // -1- improve image (resize/sharpen)
-           result = result.resize(0.4, 0.4);
-           result = result.blurMaskFilter(1.0, 99);
-           MomoImg resultMask = result.clone().threshold(2,50,true); // select pixel with hue>100
-//           result = result.selectHSVChannel(2); // if this is moved up, then threshold should be called with channel=0
-//           MomoImg resultMask = result.clone().selectFromHistogram(70,100); // select pixel with hue>100
+           MomoImg analysis,   // grayscale for analyzing purposes
+                   totalMask,  // 0/1-mask indicating value>100
+                   mask;       // different working 0/1-submasks 
+
+
+           // -1- reduce, rotate and improve image 
+           result = result.resize(0.5, 0.5)
+             .rotate(180)
+             .blurMaskFilter(0.9, 99)
+             .blurMaskFilter(0.9, 99);
 
            // -2- find left,top and right borders with the help of getMedian, which returns the column (row)
            //     to which x% of all pixels are located left/above and (100-x) pixels are located right/below 
-           int leftTop, rightTop,
-               topLeft, bottomLeft,
-               topRight, bottomRight;
+           analysis = result.clone().selectHSVChannel(2); 
+           numRows = analysis.img.rows, 
+           numCols = analysis.img.cols, 
+           totalMask = analysis.clone().selectFromHistogram(80,100); // select 20% pixel with highest value
+//           totalMask = result.clone().threshold(2,50,true); // alt: select pixel with hue>50
 
-           int numRows = resultMask.img.rows, 
-               numCols = resultMask.img.cols, 
-               arrLen = numCols*0.1;   // length of check-arrow
-
-
-           mask = resultMask.clone().selectRegion(numRows/20,numRows/3,numCols*0.2, numCols*0.4); 
-           leftTop = mask.getMedian(mask.getNumOnes()/10, true);
-           mask = resultMask.clone().selectRegion(numRows/20,numRows/3,numCols*0.6, numCols*0.8); 
-           rightTop = mask.getMedian(mask.getNumOnes()/10, true);
-           mask = resultMask.clone().selectRegion(numRows*0.2,numRows*0.4,numCols*0.1, numCols*0.5); 
+           mask  = totalMask.clone().selectRegion(numRows*0.7,numRows*0.95,numCols*0.2, numCols*0.4);
+           leftBottom = mask.getMedian(mask.getNumOnes()*0.9, true);
+           mask = totalMask.clone().selectRegion(numRows*0.7,numRows*0.95,numCols*0.6, numCols*0.8);
+           rightBottom = mask.getMedian(mask.getNumOnes()*0.9, true);
+           mask = totalMask.clone().selectRegion(numRows*0.2,numRows*0.4,numCols*0.1, numCols*0.5);
            topLeft = mask.getMedian(mask.getNumOnes()*0.1, false);
-           mask = resultMask.clone().selectRegion(numRows*0.2,numRows*0.4,numCols*0.5, numCols*0.9); 
+           mask = totalMask.clone().selectRegion(numRows*0.2,numRows*0.4,numCols*0.1, topLeft + numCols/20);
+           topLeft = mask.getMedian(mask.getNumOnes()*0.1, false);
+           mask = totalMask.clone().selectRegion(numRows*0.2,numRows*0.4,numCols*0.5, numCols*0.9);
            topRight = mask.getMedian(mask.getNumOnes()*0.9, false);
-           mask = resultMask.clone().selectRegion(numRows*0.6,numRows*0.8,numCols*0.1, numCols*0.5); 
-           bottomLeft = mask.getMedian(mask.getNumOnes()*0.1, false);
-           mask = resultMask.clone().selectRegion(numRows*0.6,numRows*0.8,numCols*0.5, numCols*0.9); 
-           bottomRight = mask.getMedian(mask.getNumOnes()*0.9, false);
-           mask = resultMask.clone().selectRegion(numRows*0.6,numRows*0.8,bottomRight-100, numCols*0.9); // 2nd more precise search
-           bottomRight = mask.getMedian(mask.getNumOnes()*0.9, false);
-           std::cout << "lt/rt: " << leftTop << "/" << rightTop 
-                     << "\ntl/bl: " << topLeft << "/" << bottomLeft 
-                     << "\ntr/br: " << topRight << "/" << bottomRight 
-                     << std::endl;
-           
+           mask = totalMask.clone().selectRegion(numRows*0.2,numRows*0.4,topRight - numCols/20, topRight+numCols/20);
+           topRight = mask.getMedian(mask.getNumOnes()*0.9, false);
+           mask = totalMask.clone().selectRegion(numRows*0.6,numRows*0.8,numCols*0.1, numCols*0.5);
+           bottomLeft = mask.getMedian(mask.getNumOnes()*0.05, false);
+           mask = totalMask.clone().selectRegion(numRows*0.6,numRows*0.8,bottomLeft-numCols/20, bottomLeft+numCols/20);
+           bottomLeft = mask.getMedian(mask.getNumOnes()*0.05, false);
+           mask = totalMask.clone().selectRegion(numRows*0.6,numRows*0.8,numCols*0.5, numCols*0.9);
+           bottomRight = mask.getMedian(mask.getNumOnes()*0.95, false);
+           mask = totalMask.clone().selectRegion(numRows*0.6,numRows*0.8,bottomRight-numCols/20, numCols*0.9); 
+           bottomRight = mask.getMedian(mask.getNumOnes()*0.95, false);
+           std::cout << "lt/rt: " << leftBottom << "/" << rightBottom 
+                      << "\ntl/bl: " << topLeft << "/" << bottomLeft 
+                      << "\ntr/br: " << topRight << "/" << bottomRight 
+                      << std::endl;
 
+           
+           // -3- if needed rotate and or skew
+
+           // -4- determine region to search for lanes and calculate columnsums
+           int left = (topLeft + bottomLeft)/2 ,
+               width = (topRight + bottomRight)/2 - left ,
+               upperTop = (leftBottom + rightBottom)/2 - width*0.81,
+               lowerTop = upperTop + width*0.43 ;
+
+           // central dimension from which all others derive:
+           left += width/30;
+           width *= 0.95;        // actual value ~ 900
+           
+           MomoImg upperPanel = analysis.clone().crop(upperTop,upperTop+width/3,left, left+width),
+               lowerPanel = analysis.clone().crop(lowerTop,lowerTop+width/3,left, left+width);
+
+           analysis.drawSquare(Point(left,upperTop), Point(width, width/3));
+           analysis.drawSquare(Point(left,lowerTop), Point(width, width/3));
+           images["upperPanel"] = upperPanel; 
+           images["lowerPanel"] = lowerPanel;
 
            images["new_" + srcKey] = result;
 
-           // write checks into result
-           resultMask.drawArrow(Point(numCols*0.15, leftTop), Point(arrLen,0));
-           resultMask.drawArrow(Point(numCols*0.65, rightTop), Point(arrLen,0));
-           resultMask.drawArrow(Point(topLeft, numRows*0.2), Point(0,arrLen));
-           resultMask.drawArrow(Point(topRight, numRows*0.2), Point(0,arrLen));
-           resultMask.drawArrow(Point(bottomLeft, numRows*0.6), Point(0,arrLen));
-           resultMask.drawArrow(Point(bottomRight, numRows*0.6), Point(0,arrLen));
-           images["result"] = resultMask;
+           // -4B- determine lanes in  upperPanel and lowerPanel
+           std::vector<double> pixPerColUpper = (Mat) upperPanel.reduce(0,1),
+                               pixPerColLower = (Mat) lowerPanel.reduce(0,1),
+                               baseLine;
 
+           // band filter:
+           cv::blur(pixPerColUpper, pixPerColUpper,Size(3,1));
+           cv::blur(pixPerColUpper, baseLine,Size(80,1));
+           pixPerColUpper = (Mat) (((Mat) pixPerColUpper) - ((Mat) baseLine));
+           cv::blur(pixPerColLower, pixPerColUpper,Size(3,1));
+           cv::blur(pixPerColLower, baseLine,Size(80,1));
+           pixPerColLower = (Mat) (((Mat) pixPerColLower) - ((Mat) baseLine));
+
+           jsValue x(pixPerColLower);
+//           jsBody.add("plotData", x);
+
+
+           // draw determined lanes into analysis
+           int pixPerLane = width/20.3;
+           for (unsigned int lane=0; lane<20; lane++) {
+
+             Point lt1_ = Point(left + (lane + 0.24)*pixPerLane, upperTop + 0.3*pixPerLane),
+                   lt2_ = lt1_ + Point(0,lowerTop - upperTop),
+                   diag = Point(pixPerLane*0.8, width/3.5);
+
+             analysis.drawSquare(lt1_, diag);
+             analysis.drawSquare(lt2_, diag);
+           }
+           
+           
+
+           // -5- write checks into analysis
+           analysis.drawArrow(Point(numCols*0.15, leftBottom+50), Point(arrLen,-50));
+           analysis.drawArrow(Point(numCols*0.65, rightBottom+50), Point(arrLen,-50));
+           analysis.drawArrow(Point(topLeft-50, numRows*0.2), Point(50,arrLen));
+           analysis.drawArrow(Point(topRight+50, numRows*0.2), Point(-50,arrLen));
+           analysis.drawArrow(Point(bottomLeft-50, numRows*0.6), Point(50,arrLen));
+           analysis.drawArrow(Point(bottomRight+50, numRows*0.6), Point(-50,arrLen));
+
+           // -6- save result in new_image and analysis in result
+           images["new_" + srcKey] = result;
+           images["result"] = analysis;
+
+
+         } else if (convName=="bitwise_not") {
+           images["result"] = result.bitwise_not();
          } else if (convName=="medianBlur") {
            int kSize = myConversion.get("kSize").getInt();
            images["result"] = result.medianBlur(kSize);
@@ -188,22 +258,20 @@ bool callback(MomoMessage request, int socket_fd) {
            images["result"] = result.selectHSVChannel(channel);
          } else if (convName=="reduce") {
            int rType = myConversion.get("rType").getInt(),
-               dim = myConversion.get("rType").getInt();
+               dim = myConversion.get("dim").getInt();
+           std::vector<double> reduce_ = (Mat) result.reduce(dim, rType),
+                               baseLine;
 
-           switch (rType) {
-           case 0: rType = CV_REDUCE_SUM;
-             break;
-           case 1: rType = CV_REDUCE_AVG;
-             break;
-           case 2: rType = CV_REDUCE_MAX;
-             break;
-           case 3: rType = CV_REDUCE_MIN;
-             break;
-           default: 
-             throw std::string("reduce: invalid rType, choose from [0,1,2,3]");
-             break;
-           }
-           std::cout << result.reduce(dim, rType) << std::endl;
+// //         hat mal funktioniert, aber nicht immer 
+//            cv::dft(reduce_,reduce_);
+          
+           // folgendes funktioniert, liefert relativ gleichmaessige "sinus" 
+           cv::blur(reduce_, reduce_,Size(3,1));
+           cv::blur(reduce_, baseLine,Size(80,1));
+           reduce_ = (Mat) (((Mat) reduce_) - ((Mat) baseLine));
+           jsValue x(reduce_);
+           jsBody.add("x", x);
+           images["result"] = result;
          } else if (convName=="threshold") {
            int channel = myConversion.get("channel").getInt(),
                isLowerLimit = myConversion.get("isLowerLimit").getInt();
@@ -236,8 +304,7 @@ bool callback(MomoMessage request, int socket_fd) {
        }
        
      } catch (std::string s) {
-        responseCode = "400";
-        responseBody = "error: " + s;
+       throw std::string(" in conversion " + convName + ": " + s);
      }
     } else {
       responseCode = "404";

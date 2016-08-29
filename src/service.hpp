@@ -5,6 +5,7 @@
  ",{\"name\":\"blurMaskFilter\",\"rho\":1.0, \"kSize\":99}" \
  ",{\"name\":\"gaussianBlur\",\"sigmaX\":5, \"sigmaY\":5}" \
  ",{\"name\":\"medianBlur\",\"kSize\":5}" \
+ ",{\"name\":\"bitwise_not\"}" \
  ",{\"name\":\"resize\",\"fx\":0.4,\"fy\":0.4}" \
  ",{\"name\":\"reduce\",\"dim\":0,\"rType\":0}" \
  ",{\"name\":\"threshold\",\"channel\":0,\"limit\":127.5,\"isLowerLimit\":1}" \

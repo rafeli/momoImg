@@ -65,24 +65,26 @@ void MomoImg::checkImage(std::string t, std::string fn, std::string suffix) {
   imwrite(fn,img);
 }
 
-MomoImg MomoImg::drawSquare(const Point topleft, const Point bottomright) {
+MomoImg MomoImg::drawSquare(const Point topleft, const Point diag) {
 
-  Point a = Point(topleft.x, bottomright.y),
+  Point bottomright = topleft + diag,
+        a = Point(topleft.x, bottomright.y),
         b = Point(bottomright.x, topleft.y);
 
-  line(img,topleft,a, Scalar(255,255,255),4,8);
-  line(img,topleft,b, 255,4,8);
-  line(img,bottomright,a, 255,4,8);
-  line(img,bottomright,b, 255,4,8);
+  line(img,topleft,a, Scalar(255,255,255),2,8);
+  line(img,topleft,b, 255,2,8);
+  line(img,bottomright,a, 255,2,8);
+  line(img,bottomright,b, 255,2,8);
 
   return (*this);
 }
 
-MomoImg MomoImg::drawArrow(const Point start, const Point arrow, const int thickness) {
+MomoImg MomoImg::drawArrow(const Point start, const Point arrow, int thickness) {
 
   Point normal = Point(arrow.y, -1*arrow.x);
 
-  line(img,start,start + arrow,125,20,8);
+  if (thickness==0) thickness = cv::norm(arrow) / 10;
+  line(img,start,start + arrow,125,thickness,8);
   line(img,start + 0.7*arrow + 0.2*normal, start+arrow, 125,thickness, 8); 
   line(img,start + 0.7*arrow - 0.2*normal, start+arrow, 125,thickness, 8); 
   
@@ -113,6 +115,11 @@ MomoImg MomoImg::clone() {
   MomoImg myClone(img.clone());
 
   return myClone;
+}
+
+MomoImg MomoImg::bitwise_not() {
+  cv::bitwise_not(img,img);
+  return(*this);
 }
 
 MomoImg MomoImg::createFromMat(const cv::Mat& m) {
@@ -148,18 +155,37 @@ MomoImg MomoImg::resize(double fx, double fy) {
   return (*this);
 }
 
-std::string MomoImg::reduce(int dim, int rType) {
+std::vector<double> MomoImg::reduce(int dim, int rType) {
 
-  int rows_ = (dim ? img.rows : 1),
-      cols_ = (dim ? 1 : img.cols);
-  cv::Mat result(rows_,cols_,img.type());
-  std::stringstream ss;
+  // cv::reduce gave: Unsupported combination of input and output array formats in function reduce
+  // so I wrote my own version
+  std::vector<double> result(dim ? img.rows : img.cols, 0);
 
-  cv::reduce(img, result, dim, rType, img.depth());
+  // -1- calculate sum
+  for (unsigned int row=0; row<img.rows; row++) {
+    uchar * data = img.ptr<uchar>(row);   
+    for (unsigned int col=0; col<img.cols; col++) {
+      if (dim) {
+        result[row] += data[col];
+      } else {
+        result[col] += data[col];
+      }
+    }
+  }
+   
+  // -2- if rType = REDUCE_AVG == 1  
+  if (rType == 1) {
+    for (unsigned int i=0; i<result.size(); i++) {
+      if (dim) {
+        result[i] /= img.rows;
+      } else {
+        result[i] /= img.cols;
+      }
+    }
+  }
 
-  ss.str("");
-  ss << result;
-  return ss.str();
+  // -3- return
+  return result;
 }
 
 int MomoImg::getMedian(long median, bool countRows) {
@@ -445,8 +471,8 @@ MomoImg MomoImg::blurMaskFilter(double rho, const int kSize) {
   //     to increase contrast. In this implementation we first 
   //     filter too high frequencies
 
-  // -1.1- first filter
-  cv::GaussianBlur(img,img,cv::Size(0,0), kSize/30.0, kSize/30.0);
+  // -1.1- first filter auskommentiert am 28.8.2016: deutlich schlechter.
+//  cv::GaussianBlur(img,img,cv::Size(0,0), kSize/30.0, kSize/30.0);
 
 
   // -1.2- subtract blurred image from original (all 3 bgr channels)
