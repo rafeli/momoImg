@@ -21,6 +21,90 @@ jsObject parseBody(std::string body) {
 }
 
 
+// to be moved to schuelerlabor
+std::vector<int> analyzeSlots(const std::vector<double> pixPerCol, int& left, int& width) {
+
+  double sumA_, sumB_;
+  bool countingA = false,   // count peaks from -1 to +1
+       countingB = false;   // count peaks from -2 to +0
+  int startA, startB = -1;
+  std::vector<int> lanesWithSignal,  // slot-index of used slots
+                   deviation;        // w.r.t. the expected position
+
+  for (unsigned int col=0; col<pixPerCol.size(); col++) {
+
+    if (pixPerCol[col]>-1) {
+      if (countingA) {
+        if (pixPerCol[col]>0) sumA_ += pixPerCol[col];
+      } else if (col>1 && pixPerCol[col-1]<0) {
+        startA = col;
+        countingA=true;
+      }
+    } else {
+      if (countingA) {
+        int width_ = col - startA;
+        if ((width_>20) && (width_ < width) && (sumA_/width_)>1.1) {
+          int pos = (startA+col)/2,
+              slot = (pos - left)/width;
+          std::cout << "A peak at slot: " << slot << "soll: " 
+                    << left + (slot+0.5)*width << " pos:" << pos << std::endl ;
+          deviation.push_back(pos - (left + (slot+0.5)*width));
+          lanesWithSignal.push_back(slot);
+          countingB=false;
+          sumB_ = 0;
+          startB = -1;
+        }
+        sumA_ = 0;
+        countingA = false;
+        startA = -1;
+      }
+    }
+
+    if (pixPerCol[col]>-2) {
+      if (countingB) {
+        if (pixPerCol[col]>0) sumB_ += pixPerCol[col];
+      } else if (col>1 && pixPerCol[col-1]<0) {
+        startB = col;
+        countingB=true;
+      }
+    } else {
+      if (countingB) {
+        int width_ = col - startB;
+        if ((width_>20) && width_<width && (sumB_/width_)>0.1) {
+          int pos = (startB+col)/2,
+              slot = (pos - left)/width;
+          std::cout << "B peak at slot: " << slot << "soll: " 
+                    << left + (slot+0.5)*width << " pos:" << pos << std::endl ;
+          deviation.push_back(pos - (left + (slot+0.5)*width));
+          lanesWithSignal.push_back(slot);
+          countingA=false;
+          sumA_ = 0;
+          startA = -1;
+        }
+        sumB_ = 0;
+        countingB = false;
+        startB = -1;
+      }
+    }
+
+  }
+
+  // -2- korrigiere left und width wenn ein minimaler Anzahl Slots gefunden 
+  double correction=0;
+  if (lanesWithSignal.size()>3) {
+    for (unsigned int i=0; i<lanesWithSignal.size(); i++) {
+       correction += deviation[i]; 
+    }
+  }
+  std::cout << "changing left from: " << left ;
+  left += correction/lanesWithSignal.size();
+  std::cout << " to: " << left << std::endl ;
+
+  // -3-
+  return lanesWithSignal;
+
+}
+
 bool callback(MomoMessage request, int socket_fd) {
 
 
@@ -136,6 +220,7 @@ bool callback(MomoMessage request, int socket_fd) {
 
            // -2- find left,top and right borders with the help of getMedian, which returns the column (row)
            //     to which x% of all pixels are located left/above and (100-x) pixels are located right/below 
+           //     better results with two calls
            analysis = result.clone().selectHSVChannel(2); 
            numRows = analysis.img.rows, 
            numCols = analysis.img.cols, 
@@ -199,35 +284,56 @@ bool callback(MomoMessage request, int socket_fd) {
            cv::blur(pixPerColUpper, pixPerColUpper,Size(3,1));
            cv::blur(pixPerColUpper, baseLine,Size(80,1));
            pixPerColUpper = (Mat) (((Mat) pixPerColUpper) - ((Mat) baseLine));
-           cv::blur(pixPerColLower, pixPerColUpper,Size(3,1));
+           cv::blur(pixPerColLower, pixPerColLower,Size(3,1));
            cv::blur(pixPerColLower, baseLine,Size(80,1));
            pixPerColLower = (Mat) (((Mat) pixPerColLower) - ((Mat) baseLine));
 
-           jsValue x(pixPerColLower);
+//           jsValue x(pixPerColUpper);
 //           jsBody.add("plotData", x);
 
 
            // draw determined lanes into analysis
-           int pixPerLane = width/20.3;
+           // analysing pixPerCol
+
+           int lowerOffset = 0.012*width,
+               upperOffset = lowerOffset,
+               lowerLaneWidth = width/20.3,
+               upperLaneWidth = lowerLaneWidth;
+           // determine used lanes *and* calculate correction factors
+           std::vector<int> upperLanes = analyzeSlots(pixPerColUpper, upperOffset, upperLaneWidth),
+                            lowerLanes = analyzeSlots(pixPerColLower, lowerOffset, lowerLaneWidth);
+            
            for (unsigned int lane=0; lane<20; lane++) {
 
-             Point lt1_ = Point(left + (lane + 0.24)*pixPerLane, upperTop + 0.3*pixPerLane),
-                   lt2_ = lt1_ + Point(0,lowerTop - upperTop),
-                   diag = Point(pixPerLane*0.8, width/3.5);
+             Point lt1_ = Point(left + upperOffset + (lane+0.1)*upperLaneWidth, upperTop + 0.3*upperLaneWidth),
+                   lt2_ = Point(left + lowerOffset + (lane+0.1)*lowerLaneWidth, lowerTop + 0.3*lowerLaneWidth),
+                   diag = Point(0.04*width, width/3.5);
 
              analysis.drawSquare(lt1_, diag);
              analysis.drawSquare(lt2_, diag);
            }
            
-           
 
-           // -5- write checks into analysis
+           // -5- draw top/left/right checks as arrows into analysis
            analysis.drawArrow(Point(numCols*0.15, leftBottom+50), Point(arrLen,-50));
            analysis.drawArrow(Point(numCols*0.65, rightBottom+50), Point(arrLen,-50));
            analysis.drawArrow(Point(topLeft-50, numRows*0.2), Point(50,arrLen));
            analysis.drawArrow(Point(topRight+50, numRows*0.2), Point(-50,arrLen));
            analysis.drawArrow(Point(bottomLeft-50, numRows*0.6), Point(50,arrLen));
            analysis.drawArrow(Point(bottomRight+50, numRows*0.6), Point(-50,arrLen));
+
+           // -5A- draw arrows in each Lane with detected content
+           for (unsigned int i=0; i<upperLanes.size(); i++) {
+             analysis.drawArrow(
+               Point(left + upperOffset + upperLaneWidth*(upperLanes[i]+0.5), upperTop + width/3),
+               Point(0,-arrLen/2));
+           }
+           for (unsigned int i=0; i<lowerLanes.size(); i++) {
+             analysis.drawArrow(
+               Point(left + lowerOffset + lowerLaneWidth*(lowerLanes[i]+0.5), lowerTop + width/3),
+               Point(0,-arrLen/2));
+           }
+
 
            // -6- save result in new_image and analysis in result
            images["new_" + srcKey] = result;
@@ -270,7 +376,7 @@ bool callback(MomoMessage request, int socket_fd) {
            cv::blur(reduce_, baseLine,Size(80,1));
            reduce_ = (Mat) (((Mat) reduce_) - ((Mat) baseLine));
            jsValue x(reduce_);
-           jsBody.add("x", x);
+           jsBody.add("plotData", x);
            images["result"] = result;
          } else if (convName=="threshold") {
            int channel = myConversion.get("channel").getInt(),
