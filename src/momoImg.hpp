@@ -107,7 +107,7 @@ public:
 
   /// add a second Image to a binary TODO: 
   MomoImg addImage(Mat img);
-  MomoImg addImage(Mat img, unsigned int atRow, unsigned int atCol);
+  MomoImg addImage(Mat img, int atRow, int atCol);
 
   /// rotate the image by angle
   MomoImg rotate(double angle);

@@ -17,8 +17,12 @@ int main(int argc, char ** argv) {
 
   // -2- test each unit
   // -2.1- MomoImg
-  TestMomoImg testMomoImg;
-  numTests += testMomoImg.testAll();
+  try {
+    TestMomoImg testMomoImg;
+    numTests += testMomoImg.testAll();
+  } catch (std::string s) {
+    std::cout << "unexpected error: " << s;
+  }
 
   // -3- finalize
   TestTools::testingComplete();

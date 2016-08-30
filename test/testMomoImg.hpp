@@ -17,7 +17,7 @@ public:
 
   int testReadWrite();
 
-  int testGetAngle();
+  int testAddImage();
 
 
 private:

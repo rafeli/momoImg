@@ -500,13 +500,13 @@ MomoImg MomoImg::blurMaskFilter(double rho, const int kSize) {
  * by subselecting part of this that starts at (x,y)
  * and then call addImage(m) 
  */
-MomoImg MomoImg::addImage(Mat m, unsigned int atRow, unsigned int atCol) {
+MomoImg MomoImg::addImage(Mat m, int atRow, int atCol) {
 
   Mat origImg = img,  // origImg and img are different pointers to (regions of) the same Image
       mask;
 
-  // -0- check arguments
-  if (atRow-img.rows>0 || atCol-img.cols>0) {
+  // -0- check arguments (Mat.rows and Mat.cols are declared as (int)
+  if (atRow<0 || atRow > img.rows || atCol < 0 || atCol >img.cols) {
     throw "from addImage: cannot add at "
         + std::to_string(atRow) +":" + std::to_string(atCol)
         + " in image of size " 
@@ -544,9 +544,16 @@ MomoImg MomoImg::addImage(Mat m) {
       minCols = (m.cols<img.cols) ? m.cols : img.cols;
   MomoImg cropped_m(m);
   cropped_m.crop(0,minRows,0,minCols);
+  Mat mask;
 
   // -2- construct a mask where m != 0
-  Mat mask = cropped_m.clone().selectHSVChannel(2).img > 1;
+  if (m.channels()==3) {
+    mask = cropped_m.clone().selectHSVChannel(2).img > 1;
+  } else  if (m.channels() ==1) {
+    mask = cropped_m.clone().img > 0;
+  } else {
+    throw std::string("from addImage: insert must have either 1 or 3 channels");
+  }
 
   // -3- add (to upper left part if m smaller than my image)
   cropped_m.img.copyTo(img(Range(0,minRows),Range(0, minCols)),mask);
