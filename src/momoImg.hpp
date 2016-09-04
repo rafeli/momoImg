@@ -34,6 +34,7 @@ public:
   // constructor
   MomoImg();
   MomoImg(Mat);
+  MomoImg(int rows, int cols); // creates color image rows*cols
 
   MomoImg clone();
 
@@ -83,7 +84,7 @@ public:
 
   MomoImg selectRegion(unsigned int rowMin,unsigned int rowMax,unsigned int colMin,unsigned int colMax);
 
-  MomoImg crop(unsigned int rowMin,unsigned int rowMax,unsigned int colMin,unsigned int colMax);
+  MomoImg crop(int rowMin,int rowMax,int colMin,int colMax);
 
 
   // METHODS to turn rgb-image into a 0/1-  or grayscale- images
@@ -110,7 +111,7 @@ public:
   MomoImg addImage(Mat img, int atRow, int atCol);
 
   /// rotate the image by angle
-  MomoImg rotate(double angle);
+  MomoImg rotate(double angle, double centerX=0.5, double centerY=0.5);
 
   MomoImg setSize(unsigned int rows, unsigned int cols);
 

@@ -4,6 +4,10 @@ MomoImg::MomoImg(){
   centerRow = centerCol = 0;
 }
 
+MomoImg::MomoImg(int numRows, int numCols) {
+  cv::Mat m(numRows, numCols, CV_8UC3);
+  img = m;
+}
 
 MomoImg::MomoImg(Mat m) {
   img = m; // macht dies ein Verweis oder Kopie ??? noch mal lesen
@@ -82,11 +86,12 @@ MomoImg MomoImg::drawSquare(const Point topleft, const Point diag) {
 MomoImg MomoImg::drawArrow(const Point start, const Point arrow, int thickness) {
 
   Point normal = Point(arrow.y, -1*arrow.x);
+  
 
   if (thickness==0) thickness = cv::norm(arrow) / 10;
-  line(img,start,start + arrow,125,thickness,8);
-  line(img,start + 0.7*arrow + 0.2*normal, start+arrow, 125,thickness, 8); 
-  line(img,start + 0.7*arrow - 0.2*normal, start+arrow, 125,thickness, 8); 
+  line(img,start,start + arrow,Scalar(125,125,125),thickness,8);
+  line(img,start + 0.7*arrow + 0.2*normal, start+arrow, Scalar(125,125,125),thickness, 8); 
+  line(img,start + 0.7*arrow - 0.2*normal, start+arrow, Scalar(125,125,125),thickness, 8); 
   
   return (*this);
 }
@@ -564,10 +569,15 @@ MomoImg MomoImg::addImage(Mat m) {
   
 }
 
-MomoImg MomoImg::rotate(double phi) {
+MomoImg MomoImg::rotate(double phi, double centerX, double centerY) {
+
+
+  // -0- ENTER and CHECK
+  if (centerX<0 || centerX>1.0) throw std::string(" in rotate: please make sure 0<centerX<1");
+  if (centerY<0 || centerY>1.0) throw std::string(" in rotate: please make sure 0<centerY<1");
 
   Mat rotMatrix(2,3, CV_32FC1);
-  Point center = Point(img.cols/2, img.rows/2);
+  Point center = Point(centerX*img.cols, centerY*img.rows);
 
   rotMatrix = getRotationMatrix2D(center, phi, 1.0 );
   warpAffine(img, img, rotMatrix, img.size());
@@ -695,14 +705,16 @@ MomoImg MomoImg::selectRegion(unsigned int rowMin,unsigned int rowMax
 
 }
 
-MomoImg MomoImg::crop(unsigned int rowMin,unsigned int rowMax
-                  ,unsigned int colMin,unsigned int colMax) {
+MomoImg MomoImg::crop(int rowMin,int rowMax
+                  ,int colMin,int colMax) {
 
   unsigned int nRows = img.rows,
                nCols = img.cols;
 
   // -0- ENTER
   MYLOG(DEBUG, "ENTERING: " << rowMin << ":" << rowMax << ":" << colMin << ":" << colMax);
+  if (rowMin<0 || rowMin>rowMax) throw std::string("from crop: invalid top coordinate");
+  if (colMin<0 || colMin>colMax) throw std::string("from crop: invalid left coordinate");
   if (rowMax>nRows) rowMax = nRows;
   if (colMax>nCols) colMax = nCols;
 

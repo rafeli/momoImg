@@ -7,6 +7,7 @@
  ",{\"name\":\"medianBlur\",\"kSize\":5}" \
  ",{\"name\":\"bitwise_not\"}" \
  ",{\"name\":\"resize\",\"fx\":0.4,\"fy\":0.4}" \
+ ",{\"name\":\"rotate\",\"angle\":90,\"centerX\":0.5, \"centerY\":0.5}" \
  ",{\"name\":\"reduce\",\"dim\":0,\"rType\":0}" \
  ",{\"name\":\"threshold\",\"channel\":0,\"limit\":127.5,\"isLowerLimit\":1}" \
  ",{\"name\":\"test\",\"param\":2}" \
