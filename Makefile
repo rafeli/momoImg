@@ -28,7 +28,7 @@ $(LOCALLIB)/libmomoImg.a : $(OBJS)
 test/testRunner: $(TEST_OBJS) install
 	$(CC) $(LFLAGS) -o test/testRunner $(TEST_OBJS) $(LIBS)
 
-test/%.o: test/%.cpp test/%.hpp $(LOCALLIB)/libmomoMath.a
+test/%.o: test/%.cpp test/%.hpp 
 	$(CC) -c $(INCLUDES) $(CFLAGS) $<
 	mv *.o test
 

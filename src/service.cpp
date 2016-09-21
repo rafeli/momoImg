@@ -88,7 +88,7 @@ bool callback(MomoMessage request, int socket_fd) {
     } else if (mName == "postImage") {
      
      try {
-       jsObject myImage = parseBody(base64ToString(request.body));
+       jsObject myImage = parseBody(b64toa(request.body));
        std::string imgData = myImage.get("imgData").getString(),
                    imgType = myImage.get("imgType").getString(),
                    imgKey = myImage.get("imgKey").getString();
@@ -105,7 +105,7 @@ bool callback(MomoMessage request, int socket_fd) {
      std::string  convName;
      
      try {
-       jsObject myConversion = parseBody(base64ToString(request.body));
+       jsObject myConversion = parseBody(b64toa(request.body));
        std::string srcKey = myConversion.get("sourceImage").getString();
        convName = myConversion.get("name").getString();
 
@@ -189,6 +189,9 @@ bool callback(MomoMessage request, int socket_fd) {
          // final step for all conversions: include result image in response
          jsValue imgJSON(images["result"].toHTML());
          jsBody.add("img", imgJSON);
+         jsBody.add("rows",images["result"].img.rows);
+         jsBody.add("cols",images["result"].img.cols);
+         jsBody.add("channels",images["result"].img.channels());
 
        } else {
          responseCode = "400";  // images[srcKey].count==0
@@ -207,9 +210,6 @@ bool callback(MomoMessage request, int socket_fd) {
     // create response body for call to opencv
     jsValue duration((cv::getTickCount() - startTime) / cv::getTickFrequency());
     jsBody.add("time",duration);
-    jsBody.add("rows",images["result"].img.rows);
-    jsBody.add("cols",images["result"].img.cols);
-    jsBody.add("channels",images["result"].img.channels());
     responseBody = jsBody.stringify();
 
   } catch (std::string s) {
@@ -221,6 +221,7 @@ bool callback(MomoMessage request, int socket_fd) {
 
   // -2- send response
   if (responseCode == "200") {
+    responseBody = atob64(responseBody);
     response = "HTTP/1.1 200 OK\r\n"
                "Content-Type: text/html\r\nContent-Length: "
              + std::to_string(responseBody.length()) + "\r\n\r\n"
