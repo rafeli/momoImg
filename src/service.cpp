@@ -88,7 +88,7 @@ bool callback(MomoMessage request, int socket_fd) {
     } else if (mName == "postImage") {
      
      try {
-       jsObject myImage = parseBody(b64toa(request.body));
+       jsObject myImage = parseBody(atob64(request.body));
        std::string imgData = myImage.get("imgData").getString(),
                    imgType = myImage.get("imgType").getString(),
                    imgKey = myImage.get("imgKey").getString();
@@ -105,7 +105,7 @@ bool callback(MomoMessage request, int socket_fd) {
      std::string  convName;
      
      try {
-       jsObject myConversion = parseBody(b64toa(request.body));
+       jsObject myConversion = parseBody(atob64(request.body));
        std::string srcKey = myConversion.get("sourceImage").getString();
        convName = myConversion.get("name").getString();
 
@@ -221,7 +221,7 @@ bool callback(MomoMessage request, int socket_fd) {
 
   // -2- send response
   if (responseCode == "200") {
-    responseBody = atob64(responseBody);
+    responseBody = b64toa(responseBody);
     response = "HTTP/1.1 200 OK\r\n"
                "Content-Type: text/html\r\nContent-Length: "
              + std::to_string(responseBody.length()) + "\r\n\r\n"
