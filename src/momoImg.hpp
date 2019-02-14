@@ -13,11 +13,10 @@
 #include "momo/logging.hpp"
 #include "momo/systemCall.hpp"
 #include "momo/binaryCoding.hpp"
+#include "momo/json.hpp"
 
 #define MINP 100        // how many pixel required to get valid averages
 #define MAXSIZE 1E5     // used in various calls, upper limit img.rows, img.cols
-
-using namespace cv;
 
 class MomoImg {
 
@@ -25,15 +24,18 @@ private:
 
   int centerRow, centerCol;
 
+  cv::Point js2Point(momo::jsValue p, std::string key);
+
+  cv::Rect js2Rect(momo::jsValue r, std::string key);
 
 public:
 
   // todo: move to private
-  Mat img;
+  cv::Mat img;
 
   // constructor
   MomoImg();
-  MomoImg(Mat);
+  MomoImg(cv::Mat);
   MomoImg(int rows, int cols); // creates color image rows*cols
 
   MomoImg clone();
@@ -46,6 +48,7 @@ public:
   void saveImage(std::string);
 
   std::string toHTML();
+  std::string getImgData(std::string type);
 
   MomoImg readFromString(const std::string& data, const std::string type);
 
@@ -56,9 +59,9 @@ public:
 
   // METHODS GETTING (numeric) DATA ON IMG
 
-  bool isValidPoint(Point p);
+  bool isValidPoint(cv::Point p);
 
-  Point getCenter() ; // sets baricentric coordinates
+  cv::Point getCenter() ; // sets baricentric coordinates
 
   long getNumOnes();
 
@@ -84,6 +87,7 @@ public:
 
   MomoImg selectRegion(unsigned int rowMin,unsigned int rowMax,unsigned int colMin,unsigned int colMax);
 
+  MomoImg crop(momo::jsValue rect);
   MomoImg crop(int rowMin,int rowMax,int colMin,int colMax);
 
 
@@ -98,7 +102,7 @@ public:
   MomoImg selectHSVChannel(unsigned int x);
 
   /// return a mask where the given Channel (h, s , v) exceeds a given threshold
-  Mat getHSVMask(unsigned int channel, unsigned int threshold);
+  cv::Mat getHSVMask(unsigned int channel, unsigned int threshold);
 
   /// select shape
   MomoImg selectShapeColor(int hSize, int vSize, int hsvChannel);
@@ -107,10 +111,11 @@ public:
   // METHODS to edit an image
 
   /// add a second Image to a binary TODO: 
-  MomoImg addImage(Mat img);
-  MomoImg addImage(Mat img, int atRow, int atCol);
+  MomoImg addImage(cv::Mat img);
+  MomoImg addImage(cv::Mat img, int atRow, int atCol);
 
   /// rotate the image by angle
+  MomoImg rotate(momo::jsValue options);
   MomoImg rotate(double angle, double centerX=0.5, double centerY=0.5);
 
   MomoImg setSize(unsigned int rows, unsigned int cols);
@@ -127,11 +132,11 @@ public:
   MomoImg blurMaskFilter(double rho, const int kSize);
 
   //// DRAWING functions
-  MomoImg drawArrow(const Point , const Point, int thickness=0);
+  MomoImg drawArrow(const cv::Point , const cv::Point, int thickness=0);
 
-  MomoImg drawSquare(const Point , const Point);
+  MomoImg drawSquare(const cv::Point , const cv::Point);
 
-  MomoImg label(const Point , std::string label);
+  MomoImg label(const cv::Point , std::string label);
 
 
 };

@@ -9,7 +9,7 @@ MomoImg::MomoImg(int numRows, int numCols) {
   img = m;
 }
 
-MomoImg::MomoImg(Mat m) {
+MomoImg::MomoImg(cv::Mat m) {
   img = m; // macht dies ein Verweis oder Kopie ??? noch mal lesen
            // und dann in tutorial aufnehmen ...
   centerRow = centerCol = 0; // TODO: wie geht das mit mehreren Konstruktoren?
@@ -19,13 +19,24 @@ void MomoImg::saveImage(std::string fp) {
   imwrite(fp, img);
 }
 
+std::string MomoImg::getImgData(std::string type) {
+
+  if ((type != ".jpg") && (type != ".png"))  throw std::string("from getImgData, unknown type: ") + type;
+  if (img.rows==0 || img.cols==0) throw std::string("from getImgData: image has zero size");
+
+  std::vector<uchar> buf;
+  cv::imencode(type, img, buf, std::vector<int>() );
+  std::string base64 = momo::tools::encodeBase64((unsigned char*) &buf[0], buf.size());
+  return base64;
+}
+
 std::string MomoImg::toHTML() {
 
   // encode image as jpg then as base64:
   // see: http://stackoverflow.com/questions/801199/opencv-to-use-in-memory-buffers-or-file-pointers
   std::vector<uchar> buf;
   cv::imencode(".jpg", img, buf, std::vector<int>() );
-  std::string base64 = encodeBase64((unsigned char*) &buf[0], buf.size());
+  std::string base64 = momo::tools::encodeBase64((unsigned char*) &buf[0], buf.size());
 
   return std::string("<img src=\"data:jpeg;base64," + base64 + "\">");
 
@@ -37,10 +48,12 @@ std::string MomoImg::toHTML() {
 // use of rawData, see: http://stackoverflow.com/questions/14727267/opencv-read-jpeg-image-from-buffer
 MomoImg MomoImg::readFromString(const std::string& data, const std::string type) {
 
+  std::vector<unsigned char> buf;
+
   if (data.size() ==0) throw std::string("from MomoImg::readFromString: data is empty");
 
-  std::vector<unsigned char> buf = decodeBase64(data);
-  cv::Mat rawData = Mat(1,buf.size(), CV_8UC1, ((unsigned char*) &buf[0]));
+  momo::tools::decodeBase64(data, buf);
+  cv::Mat rawData = cv::Mat(1,buf.size(), CV_8UC1, ((unsigned char*) &buf[0]));
   img = cv::imdecode(rawData,CV_LOAD_IMAGE_UNCHANGED);
   return (*this);
 
@@ -48,13 +61,13 @@ MomoImg MomoImg::readFromString(const std::string& data, const std::string type)
 
 void MomoImg::checkImage(std::string t, std::string fn, std::string suffix) {
 
-  Mat x;
-  int fontType =  FONT_HERSHEY_COMPLEX;
-  Scalar fontColor = Scalar(255,255,255);
+  cv::Mat x;
+  int fontType =  cv::FONT_HERSHEY_COMPLEX;
+  cv::Scalar fontColor = cv::Scalar(255,255,255);
 
   // -1- create image, insert the text t into this image
-  cv::resize(img,x,Size(600,400));
-  if (t.length()>0) putText(img, t, Point(50,50),fontType,2,fontColor,1);
+  cv::resize(img,x,cv::Size(600,400));
+  if (t.length()>0) putText(img, t, cv::Point(50,50),fontType,2,fontColor,1);
 
   // -2- construct the filename, e.g. xyz_CENTER.jpg  for xyz.jpg
   if (fn.find_last_of(".")==std::string::npos) {
@@ -69,13 +82,13 @@ void MomoImg::checkImage(std::string t, std::string fn, std::string suffix) {
   imwrite(fn,img);
 }
 
-MomoImg MomoImg::drawSquare(const Point topleft, const Point diag) {
+MomoImg MomoImg::drawSquare(const cv::Point topleft, const cv::Point diag) {
 
-  Point bottomright = topleft + diag,
-        a = Point(topleft.x, bottomright.y),
-        b = Point(bottomright.x, topleft.y);
+  cv::Point bottomright = topleft + diag,
+        a = cv::Point(topleft.x, bottomright.y),
+        b = cv::Point(bottomright.x, topleft.y);
 
-  line(img,topleft,a, Scalar(255,255,255),2,8);
+  line(img,topleft,a, cv::Scalar(255,255,255),2,8);
   line(img,topleft,b, 255,2,8);
   line(img,bottomright,a, 255,2,8);
   line(img,bottomright,b, 255,2,8);
@@ -83,23 +96,23 @@ MomoImg MomoImg::drawSquare(const Point topleft, const Point diag) {
   return (*this);
 }
 
-MomoImg MomoImg::drawArrow(const Point start, const Point arrow, int thickness) {
+MomoImg MomoImg::drawArrow(const cv::Point start, const cv::Point arrow, int thickness) {
 
-  Point normal = Point(arrow.y, -1*arrow.x);
+  cv::Point normal = cv::Point(arrow.y, -1*arrow.x);
   
 
   if (thickness==0) thickness = cv::norm(arrow) / 10;
-  line(img,start,start + arrow,Scalar(125,125,125),thickness,8);
-  line(img,start + 0.7*arrow + 0.2*normal, start+arrow, Scalar(125,125,125),thickness, 8); 
-  line(img,start + 0.7*arrow - 0.2*normal, start+arrow, Scalar(125,125,125),thickness, 8); 
+  line(img,start,start + arrow,cv::Scalar(125,125,125),thickness,8);
+  line(img,start + 0.7*arrow + 0.2*normal, start+arrow, cv::Scalar(125,125,125),thickness, 8); 
+  line(img,start + 0.7*arrow - 0.2*normal, start+arrow, cv::Scalar(125,125,125),thickness, 8); 
   
   return (*this);
 }
 
-MomoImg MomoImg::label(const Point x, std::string text) {
+MomoImg MomoImg::label(const cv::Point x, std::string text) {
 
-  int fontType =  FONT_HERSHEY_PLAIN;
-  Scalar fontColor = Scalar(255,255,255);
+  int fontType =  cv::FONT_HERSHEY_PLAIN;
+  cv::Scalar fontColor = cv::Scalar(255,255,255);
 
   putText(img, text, x,fontType,5,fontColor,4);
 
@@ -109,7 +122,7 @@ MomoImg MomoImg::label(const Point x, std::string text) {
 
 MomoImg MomoImg::readImage(std::string fileName) {
 
-  img = imread(fileName);
+  img = cv::imread(fileName);
   if (!img.data) throw "could not read image from: " + fileName;
   return (*this);
 }
@@ -132,7 +145,7 @@ MomoImg MomoImg::createFromMat(const cv::Mat& m) {
   return (*this);
 }
 
-bool MomoImg::isValidPoint(Point p) {
+bool MomoImg::isValidPoint(cv::Point p) {
   return (p.y<img.rows && p.x<img.cols);
 }
 
@@ -167,9 +180,9 @@ std::vector<double> MomoImg::reduce(int dim, int rType) {
   std::vector<double> result(dim ? img.rows : img.cols, 0);
 
   // -1- calculate sum
-  for (unsigned int row=0; row<img.rows; row++) {
+  for (int row=0; row<img.rows; row++) {
     uchar * data = img.ptr<uchar>(row);   
-    for (unsigned int col=0; col<img.cols; col++) {
+    for (int col=0; col<img.cols; col++) {
       if (dim) {
         result[row] += data[col];
       } else {
@@ -219,7 +232,7 @@ int MomoImg::getMedian(long median, bool countRows) {
   return -1;
 }
 
-Point MomoImg::getCenter() {
+cv::Point MomoImg::getCenter() {
 
   int nCols=img.cols, 
       nRows=img.rows;
@@ -252,7 +265,7 @@ Point MomoImg::getCenter() {
 
   // -4- Exit
   MYLOG(DEBUG,"EXITING: center row=" << centerRow << " col: " << centerCol << " nPix: " << nPixel);
-  return Point(centerCol, centerRow);
+  return cv::Point(centerCol, centerRow);
 }
 
 // parameter horizontal should true if the structure is close to horizontally
@@ -300,7 +313,7 @@ MomoImg MomoImg::selectCannyLines( unsigned int lowThreshold, unsigned int highT
 
 MomoImg MomoImg::selectHSVChannel(unsigned int i) {
 
-  std::vector<Mat> channels;
+  std::vector<cv::Mat> channels;
   cvtColor(img, img, CV_BGR2HSV);
   split(img, channels);
   img = channels[i%3]; 
@@ -311,7 +324,7 @@ MomoImg MomoImg::selectHSVChannel(unsigned int i) {
 
 MomoImg MomoImg::selectFromHistogram(double min, double max) {
 
-  Mat lowLimitMask, uppLimitMask;
+  cv::Mat lowLimitMask, uppLimitMask;
 
     
     // -0- ENTER and CHECK
@@ -320,7 +333,7 @@ MomoImg MomoImg::selectFromHistogram(double min, double max) {
     }
 
     // -1- calculate Histogram 
-    Mat histogram,
+    cv::Mat histogram,
         mask = cv::Mat();
     int numImages=1, numDimensions=1, 
         channels[1],
@@ -360,9 +373,9 @@ MomoImg MomoImg::selectFromHistogram(double min, double max) {
 
 MomoImg MomoImg::selectContrast(unsigned int nPix, bool horizontal) {
 
-  Mat vMask, hMask,
-      vBox(nPix,1,CV_8U,Scalar(1)),
-      hBox(1,nPix,CV_8U,Scalar(1));
+  cv::Mat vMask, hMask,
+      vBox(nPix,1,CV_8U,cv::Scalar(1)),
+      hBox(1,nPix,CV_8U,cv::Scalar(1));
 
   // -1- determine contrast as difference between two masks,
   //     on grown in horizontal, the other in vertical direction:
@@ -385,22 +398,22 @@ MomoImg MomoImg::selectContrast(unsigned int nPix, bool horizontal) {
 
 MomoImg MomoImg::selectShape(int hSize, int vSize, int repeat) {
 
-  Mat box(hSize,vSize,CV_8U, Scalar(1));
+  cv::Mat box(hSize,vSize,CV_8U, cv::Scalar(1));
   for (int i=0; i<repeat; i++) erode(img, img, box);
   return (*this);
 }
 
 MomoImg MomoImg::selectShapeColor(int hSize, int vSize, int channel ) {
 
-  Mat result,hsvimg
-      , erosionBox(hSize, vSize, CV_8U, Scalar(1));;
-  std::vector<Mat> channels;
+  cv::Mat result,hsvimg
+      , erosionBox(hSize, vSize, CV_8U, cv::Scalar(1));;
+  std::vector<cv::Mat> channels;
 
   // -1- select "adaptively filtered" horiz/vertic-component
   //     of hsv imags: subtract a picture that has been smoothed in direction d
   cvtColor(img, hsvimg, CV_BGR2HSV);
   split(hsvimg, channels);
-  boxFilter(channels[channel], result, CV_8U, Size(hSize*hSize, vSize*vSize));
+  boxFilter(channels[channel], result, CV_8U, cv::Size(hSize*hSize, vSize*vSize));
   result = channels[channel] - result;
 
   // -2- convert to binary, then filter again for vertical/horizontal
@@ -414,7 +427,7 @@ MomoImg MomoImg::selectShapeColor(int hSize, int vSize, int channel ) {
 
 MomoImg MomoImg::dilateShape(int hSize, int vSize, int repeat) {
 
-  Mat box(hSize,vSize,CV_8U, Scalar(1));
+  cv::Mat box(hSize,vSize,CV_8U, cv::Scalar(1));
   for (int i=0; i<repeat; i++) dilate(img, img, box);
   return (*this);
 }
@@ -423,7 +436,7 @@ MomoImg MomoImg::setSize(unsigned int rows, unsigned int cols) {
 
   MYLOG(DEBUG,"Enter, rows:" << img.rows << " cols:" << img.cols);
   try {
-    cv::resize(img,img,Size(rows,cols));
+    cv::resize(img,img,cv::Size(rows,cols));
   } catch (cv::Exception& e) {
     throw " from MomoImg::setSize: " + e.err;
   }
@@ -438,7 +451,7 @@ MomoImg MomoImg::equalizeHist() {
     cv::equalizeHist(img, img);
   } else if (numChannels==3) {
     cv::cvtColor(img,img,CV_BGR2HSV);
-    Mat channels[3];
+    cv::Mat channels[3];
     cv::split(img, channels);
     cv::equalizeHist(channels[2], channels[2]);
     cv::merge(channels,numChannels, img);
@@ -465,7 +478,7 @@ MomoImg MomoImg::medianBlur(const int kSize) {
 
 MomoImg MomoImg::blurMaskFilter(double rho, const int kSize) {
 
-  Mat blur;
+  cv::Mat blur;
 
   // -0- ENTER and CHECK
   if (rho<0) {
@@ -489,7 +502,7 @@ MomoImg MomoImg::blurMaskFilter(double rho, const int kSize) {
   //        (much) less time than the above medianBlur() call
   cvtColor(blur, blur, CV_BGR2HSV);
   cvtColor(img, img, CV_BGR2HSV);
-  Mat imgChannels[3], blurChannels[3];
+  cv::Mat imgChannels[3], blurChannels[3];
   cv::split(img, imgChannels);  
   cv::split(blur, blurChannels);  
   imgChannels[2] = 2*blurChannels[2];
@@ -505,9 +518,9 @@ MomoImg MomoImg::blurMaskFilter(double rho, const int kSize) {
  * by subselecting part of this that starts at (x,y)
  * and then call addImage(m) 
  */
-MomoImg MomoImg::addImage(Mat m, int atRow, int atCol) {
+MomoImg MomoImg::addImage(cv::Mat m, int atRow, int atCol) {
 
-  Mat origImg = img,  // origImg and img are different pointers to (regions of) the same Image
+  cv::Mat origImg = img,  // origImg and img are different pointers to (regions of) the same Image
       mask;
 
   // -0- check arguments (Mat.rows and Mat.cols are declared as (int)
@@ -519,7 +532,7 @@ MomoImg MomoImg::addImage(Mat m, int atRow, int atCol) {
   }
 
   // set img to the part starting at (atRow, atCol), then call addImage()
-  img = img(Range(atRow,origImg.rows),Range(atCol, origImg.cols));
+  img = img(cv::Range(atRow,origImg.rows),cv::Range(atCol, origImg.cols));
   addImage(m);
 
   // reset to complete image
@@ -534,7 +547,7 @@ MomoImg MomoImg::addImage(Mat m, int atRow, int atCol) {
  * crop m to my size if needed
  * dont copy black pixels in m
  */
-MomoImg MomoImg::addImage(Mat m) {
+MomoImg MomoImg::addImage(cv::Mat m) {
 
   // -0- Enter, TODO: check dimensions ??
   if (m.cols== img.cols && m.rows==img.rows) {
@@ -549,7 +562,7 @@ MomoImg MomoImg::addImage(Mat m) {
       minCols = (m.cols<img.cols) ? m.cols : img.cols;
   MomoImg cropped_m(m);
   cropped_m.crop(0,minRows,0,minCols);
-  Mat mask;
+  cv::Mat mask;
 
   // -2- construct a mask where m != 0
   if (m.channels()==3) {
@@ -561,12 +574,27 @@ MomoImg MomoImg::addImage(Mat m) {
   }
 
   // -3- add (to upper left part if m smaller than my image)
-  cropped_m.img.copyTo(img(Range(0,minRows),Range(0, minCols)),mask);
+  cropped_m.img.copyTo(img(cv::Range(0,minRows),cv::Range(0, minCols)),mask);
 
   // -2- exit
   MYLOG(DEBUG,"EXITING");
   return (*this);
   
+}
+
+MomoImg MomoImg::rotate(momo::jsValue options) {
+
+  // -0- ENTER and CHECK
+  cv::Point center = js2Point(options.getArray("centre"), "centre");
+  double phi = options.getDbl("phi");
+
+  // -1- calculate and apply rotation matrix
+  cv::Mat rotMatrix(2,3, CV_32FC1);
+  rotMatrix = getRotationMatrix2D(center, phi, 1.0 );
+  warpAffine(img, img, rotMatrix, img.size());
+
+  // -2- return
+  return (*this);
 }
 
 MomoImg MomoImg::rotate(double phi, double centerX, double centerY) {
@@ -576,8 +604,8 @@ MomoImg MomoImg::rotate(double phi, double centerX, double centerY) {
   if (centerX<0 || centerX>1.0) throw std::string(" in rotate: please make sure 0<centerX<1");
   if (centerY<0 || centerY>1.0) throw std::string(" in rotate: please make sure 0<centerY<1");
 
-  Mat rotMatrix(2,3, CV_32FC1);
-  Point center = Point(centerX*img.cols, centerY*img.rows);
+  cv::Mat rotMatrix(2,3, CV_32FC1);
+  cv::Point center = cv::Point(centerX*img.cols, centerY*img.rows);
 
   rotMatrix = getRotationMatrix2D(center, phi, 1.0 );
   warpAffine(img, img, rotMatrix, img.size());
@@ -619,14 +647,14 @@ MomoImg MomoImg::threshold(int channel, double limit, bool selectHigherThan) {
 
   // -1- set src to correct channel
   if (img.channels() > 1) {
-    std::vector<Mat> channels;
+    std::vector<cv::Mat> channels;
     split(img, channels);
     img = channels[channel];
   }
 
   // -1- threshold: calculate binary image from selected channel (or channel 0 from grayscale image)
   //     with each pixel set to 255 when corresponding pixel is below/above limit
-  cv::threshold(img, img, limit, 255, (selectHigherThan ? THRESH_BINARY : THRESH_BINARY_INV));
+  cv::threshold(img, img, limit, 255, (selectHigherThan ? cv::THRESH_BINARY : cv::THRESH_BINARY_INV));
 
   // return
   return (*this);
@@ -634,9 +662,9 @@ MomoImg MomoImg::threshold(int channel, double limit, bool selectHigherThan) {
 
 MomoImg MomoImg::selectHSV( int hMin, int hMax, int sMin, int sMax, int vMin, int vMax) {
 
-  Mat hsvImage, mask,
+  cv::Mat hsvImage, mask,
       totalMask(img.rows, img.cols, CV_8U, 255); // all pixel init to one ?
-  std::vector<Mat> channels;
+  std::vector<cv::Mat> channels;
   int filter[] = {hMin, hMax, sMin, sMax, vMin, vMax};
 
   // -0- ENTER
@@ -654,7 +682,7 @@ MomoImg MomoImg::selectHSV( int hMin, int hMax, int sMin, int sMax, int vMin, in
 
     if ((lowLimit && filter[i]>0) || (!lowLimit && filter[i]<255)) {
        cv::threshold(channels[i/2], mask, filter[i], 255 
-                 , (lowLimit) ? THRESH_BINARY : THRESH_BINARY_INV); 
+                 , (lowLimit) ? cv::THRESH_BINARY : cv::THRESH_BINARY_INV); 
        totalMask = totalMask & mask;
     }
   }
@@ -705,10 +733,79 @@ MomoImg MomoImg::selectRegion(unsigned int rowMin,unsigned int rowMax
 
 }
 
+cv::Point MomoImg::js2Point(momo::jsValue p, std::string key) {
+
+  try {
+
+    long row = p.getInt(0),
+         col = p.getInt(1);
+
+    if (p.size() != 2) throw std::string("point must have two coordinates");
+    if (row < 0) throw std::string("row < 0");
+    if (row >= img.rows) throw std::string("row >= num rows");
+    if (col < 0) throw std::string("col < 0");
+    if (col >= img.cols) throw std::string("col >= num cols");
+
+    return cv::Point(row,col);
+
+  } catch (std::string e) {
+    throw "invalid point " + key + " <pre> [row,col] = " + p.stringify() +  ": " + e;
+  }
+
+}
+
+cv::Rect MomoImg::js2Rect(momo::jsValue r, std::string key) {
+
+  try {
+
+    if (r.size() != 4) throw std::string("rect must have four coordinates");
+
+    long left = r.getInt(0),
+          top = r.getInt(1),
+         width = r.getInt(2),
+         height = r.getInt(3);
+
+    if (left < 0) throw std::string("left col < 0");
+    if (top < 0) throw std::string("top row < 0");
+    if (width < 0) throw std::string("width < 0");
+    if ((left + width) >= img.cols) throw std::string("left+width >= num cols");
+    if (height < 0 ) throw std::string("height < 0");
+    if ((top + height) >= img.rows) throw std::string("top+height >= num rows");
+
+    return cv::Rect(left, top, width, height);
+
+  } catch (std::string e) {
+    throw " invalid rect " + key + "<pre> [left, top, width, height] = " + r.stringify() +  ": " + e;
+  }
+
+}
+
+
+MomoImg MomoImg::crop(momo::jsValue options) {
+
+  try {
+
+    // -0- ENTER and check
+    MYLOG(DEBUG,"ENTERING");
+    momo::jsValue rect = options.getArray("crop");
+    cv::Rect cropTo = js2Rect(rect, "cropped area");
+
+    // -1- crop
+    cv::Mat croppedImage(img, cropTo);
+    img = croppedImage;
+    MYLOG(DEBUG,"EXITING");
+    return (*this);
+
+  } catch (std::string e) {
+    throw "from img::crop: " + e;
+  }
+  
+}
+
 MomoImg MomoImg::crop(int rowMin,int rowMax
                   ,int colMin,int colMax) {
 
-  unsigned int nRows = img.rows,
+  int nRows = img.rows,
                nCols = img.cols;
 
   // -0- ENTER
@@ -719,8 +816,8 @@ MomoImg MomoImg::crop(int rowMin,int rowMax
   if (colMax>nCols) colMax = nCols;
 
   // -1- crop
-  Rect region(colMin, rowMin, colMax - colMin, rowMax - rowMin);
-  Mat croppedImage(img, region);
+  cv::Rect region(colMin, rowMin, colMax - colMin, rowMax - rowMin);
+  cv::Mat croppedImage(img, region);
   img = croppedImage;
 
   // -2- exit
