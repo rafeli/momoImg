@@ -3,9 +3,9 @@
 
 
 cv::Mat imgA(30,40,CV_8U,25),                   // grayscale 30x40 image, see Constructor
-        imgB(30,20,CV_8UC3, Scalar(20,30,40)),  // color 30x20 image, see Constructor
+        imgB(30,20,CV_8UC3, cv::Scalar(20,30,40)),  // color 30x20 image, see Constructor
         imgC(10,20,CV_8U,25),                   // grayscale 10x20 image, homogeneous gray
-        imgD(20,10,CV_8UC3, Scalar(20,30,40));  // color 20x10 image, homoegeneous ?? color
+        imgD(20,10,CV_8UC3, cv::Scalar(20,30,40));  // color 20x10 image, homoegeneous ?? color
 
 MomoImg testA(imgA), testB(imgB), testC(imgC), testD(imgD);
 
@@ -29,8 +29,8 @@ TestMomoImg::TestMomoImg(){
          dataB[col*numChannel + channel] = 256 * sin ((channel*row*col % 360) / 360.0);
      }
    }
-   testA.label(Point(5,35), "R");
-   testB.label(Point(5,15), "R");
+   testA.label(cv::Point(5,35), "R");
+   testB.label(cv::Point(5,15), "R");
 
 }
 

@@ -10,7 +10,7 @@ TEST_SRCS := $(wildcard test/*.cpp)
 TEST_OBJS := $(TEST_SRCS:.cpp=.o)
 
 OPENCVLIBS = -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_imgcodecs -lopencv_videoio
-LIBS = -lmomoImg -lmomoLogging -lmomoHTTP -ljson -lpthread $(OPENCVLIBS)
+LIBS = -lmomoImg -lmomoLogging -lmomoTools -ljson -lpthread $(OPENCVLIBS)
 
 all: test/testRunner service
 
